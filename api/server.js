@@ -1,0 +1,98 @@
+/**
+ * ResearchHub API Server
+ * Main Express application configuration
+ */
+
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+
+const app = express();
+
+// Import routes
+const userRoutes = require('./src/routes/users');
+const paperRoutes = require('./src/routes/papers');
+const authorRoutes = require('./src/routes/authors');
+const journalRoutes = require('./src/routes/journals');
+const fieldRoutes = require('./src/routes/fields');
+const keywordRoutes = require('./src/routes/keywords');
+
+// ============= Middleware =============
+app.use(helmet());
+app.use(cors());
+app.use(morgan('combined'));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// ============= Health Check =============
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// ============= API Routes =============
+app.get('/api/v1', (req, res) => {
+  res.status(200).json({
+    message: 'ResearchHub API v1.0.0',
+    endpoints: {
+      health: '/health',
+      users: '/api/v1/users',
+      papers: '/api/v1/papers',
+      authors: '/api/v1/authors',
+      journals: '/api/v1/journals',
+      fields: '/api/v1/fields',
+      keywords: '/api/v1/keywords'
+    }
+  });
+});
+
+// Mount route handlers
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/papers', paperRoutes);
+app.use('/api/v1/authors', authorRoutes);
+app.use('/api/v1/journals', journalRoutes);
+app.use('/api/v1/fields', fieldRoutes);
+app.use('/api/v1/keywords', keywordRoutes);
+
+// ============= Error Handling =============
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    status: err.status || 500
+  });
+});
+
+// ============= Server Startup =============
+const PORT = process.env.API_PORT || 3000;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`
+╔════════════════════════════════════════════════════════════╗
+║        ResearchHub API Server Started                      ║
+╠════════════════════════════════════════════════════════════╣
+║ Server: http://localhost:${PORT}                             
+║ Environment: ${process.env.NODE_ENV || 'development'}
+║ Database: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}
+║ Status: Ready for requests
+╚════════════════════════════════════════════════════════════╝
+    `);
+  });
+}
+
+module.exports = app;
