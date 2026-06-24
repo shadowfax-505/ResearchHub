@@ -4,32 +4,28 @@
  */
 
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const config = require('./index');
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'researchhub_user',
-  password: process.env.DB_PASSWORD || 'researchhub_secure_password',
-  database: process.env.DB_NAME || 'researchhub',
-  charset: process.env.DB_CHARSET || 'utf8mb4',
-  collation: process.env.DB_COLLATION || 'utf8mb4_unicode_ci',
+  host: config.db.host,
+  port: config.db.port,
+  user: config.db.user,
+  password: config.db.password,
+  database: config.db.name,
+  charset: config.db.charset,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelayMs: 0
+  queueLimit: 0
 });
 
-// Test connection on startup
-pool.getConnection()
-  .then(conn => {
-    console.log('✅ Database connection pool created successfully');
-    conn.release();
-  })
-  .catch(err => {
-    console.error('❌ Database connection failed:', err.message);
-    process.exit(1);
-  });
+async function testConnection() {
+  const connection = await pool.getConnection();
+  try {
+    await connection.ping();
+    console.log('✅ Database connection pool is healthy');
+  } finally {
+    connection.release();
+  }
+}
 
-module.exports = pool;
+module.exports = { pool, testConnection };

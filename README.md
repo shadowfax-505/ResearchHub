@@ -68,6 +68,10 @@ curl http://localhost:3000/api/v1
 
 ---
 
+## Deployment
+
+For deployment and launch checks, see [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## 📁 Project Structure
 
 ```

@@ -1,0 +1,38 @@
+# Node.js
+node_modules/
+/api/node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+api/.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Coverage
+coverage/
+api/coverage/
+
+# Database backups
+/database/backups/
+api/database/backups/
+*.sql.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

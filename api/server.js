@@ -8,6 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const config = require('./src/config/index');
 
 const app = express();
 
@@ -69,7 +70,7 @@ app.use((req, res) => {
   });
 });
 
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
@@ -77,22 +78,31 @@ app.use((err, req, res, next) => {
   });
 });
 
+const { testConnection } = require('./src/config/database');
+
 // ============= Server Startup =============
-const PORT = process.env.API_PORT || 3000;
+const PORT = config.apiPort;
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`
-╔════════════════════════════════════════════════════════════╗
-║        ResearchHub API Server Started                      ║
-╠════════════════════════════════════════════════════════════╣
-║ Server: http://localhost:${PORT}                             
-║ Environment: ${process.env.NODE_ENV || 'development'}
-║ Database: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}
+  testConnection()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`
+╔════════════════════════════════════════════════════════════════════╗
+║        ResearchHub API Server Started                              ║
+╠════════════════════════════════════════════════════════════════════╣
+║ Server: http://localhost:${PORT}
+║ Environment: ${config.nodeEnv}
+║ Database: ${config.db.host}:${config.db.port}/${config.db.name}
 ║ Status: Ready for requests
-╚════════════════════════════════════════════════════════════╝
-    `);
-  });
+╚════════════════════════════════════════════════════════════════════╝
+        `);
+      });
+    })
+    .catch(err => {
+      console.error('❌ Failed to initialize database connection:', err.message);
+      process.exit(1);
+    });
 }
 
 module.exports = app;
