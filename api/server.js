@@ -78,16 +78,12 @@ app.use((err, req, res) => {
   });
 });
 
-const { testConnection } = require('./src/config/database');
-
 // ============= Server Startup =============
 const PORT = config.apiPort;
 
 if (require.main === module) {
-  testConnection()
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log(`
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════════════════════════════════╗
 ║        ResearchHub API Server Started                              ║
 ╠════════════════════════════════════════════════════════════════════╣
@@ -96,13 +92,8 @@ if (require.main === module) {
 ║ Database: ${config.db.host}:${config.db.port}/${config.db.name}
 ║ Status: Ready for requests
 ╚════════════════════════════════════════════════════════════════════╝
-        `);
-      });
-    })
-    .catch(err => {
-      console.error('❌ Failed to initialize database connection:', err.message);
-      process.exit(1);
-    });
+    `);
+  });
 }
 
 module.exports = app;
