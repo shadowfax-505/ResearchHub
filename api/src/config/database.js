@@ -15,7 +15,11 @@ const pool = mysql.createPool({
   charset: config.db.charset,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  enableTimeout: true,
+  enableConnectTimeout: true,
+  connectTimeout: 5000,
+  timeout: 30000
 });
 
 async function testConnection() {
