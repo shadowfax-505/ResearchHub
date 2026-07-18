@@ -1,7 +1,4 @@
-/**
- * Journal Controller
- * Handles journal-related API requests
- */
+
 
 const Journal = require('../models/Journal');
 

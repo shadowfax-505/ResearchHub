@@ -7,11 +7,10 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_NAME=researchhub
       - DB_USER=researchhub_user
       - DB_PASSWORD=researchhub_secure_password
+      - DB_CONNECT_STRING=db:1521/FREEPDB1
+      - DB_SCHEMA=RESEARCHHUB_USER
       - NODE_ENV=development
       - API_PORT=3000
     depends_on:
@@ -19,19 +18,32 @@ services:
     volumes:
       - ./api:/app/api
 
-  db:
-    image: mysql:8.0
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: researchhub
-      MYSQL_USER: researchhub_user
-      MYSQL_PASSWORD: researchhub_secure_password
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
     ports:
-      - '3306:3306'
+      - '3001:3001'
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+    depends_on:
+      - api
     volumes:
-      - db_data:/var/lib/mysql
-      - ./database:/docker-entrypoint-initdb.d
+      - ./web:/app
+      - /app/node_modules
+
+  db:
+    image: gvenzl/oracle-free:23-slim
+    environment:
+      ORACLE_PASSWORD: root_password
+      APP_USER: researchhub_user
+      APP_USER_PASSWORD: researchhub_secure_password
+    ports:
+      - '1521:1521'
+    volumes:
+      - db_data:/opt/oracle/oradata
+      - ../02_CREATE_TABLES.sql:/container-entrypoint-initdb.d/01_schema.sql
+      - ./database/seeds/seed-data.sql:/container-entrypoint-initdb.d/02_seed.sql
 
 volumes:
   db_data:

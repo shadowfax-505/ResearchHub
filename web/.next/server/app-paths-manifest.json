@@ -1,0 +1,8 @@
+{
+  "/feed/page": "app/feed/page.js",
+  "/questions/page": "app/questions/page.js",
+  "/jobs/page": "app/jobs/page.js",
+  "/profile/page": "app/profile/page.js",
+  "/reset-password/page": "app/reset-password/page.js",
+  "/login/page": "app/login/page.js"
+}

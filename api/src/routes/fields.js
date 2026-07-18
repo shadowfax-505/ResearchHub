@@ -1,7 +1,4 @@
-/**
- * Field Routes
- * API endpoints for research field operations
- */
+
 
 const express = require('express');
 const FieldController = require('../controllers/FieldController');
