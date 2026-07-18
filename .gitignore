@@ -43,4 +43,5 @@ Thumbs.db
 CODE_MODULE_MAPPING.txt
 PROJECT_ROADMAP.md
 _ai_archive/
-
+web/.next/
+web/out/
