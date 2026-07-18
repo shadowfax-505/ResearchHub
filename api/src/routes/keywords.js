@@ -1,7 +1,4 @@
-/**
- * Keyword Routes
- * API endpoints for keyword operations
- */
+
 
 const express = require('express');
 const KeywordController = require('../controllers/KeywordController');

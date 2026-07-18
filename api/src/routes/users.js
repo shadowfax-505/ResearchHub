@@ -1,7 +1,4 @@
-/**
- * User Routes
- * API endpoints for user operations
- */
+
 
 const express = require('express');
 const UserController = require('../controllers/UserController');
@@ -9,13 +6,18 @@ const AuthMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-// Public routes
 router.post('/register', UserController.register);
 router.post('/login', UserController.login);
+router.post('/logout', UserController.logout);
+router.post('/me/resend-verification', AuthMiddleware.verifyToken, UserController.resendVerification);
+router.get('/verify-email', UserController.verifyEmail);
+router.post('/verify-email', UserController.verifyEmail);
+router.post('/forgot-password', UserController.forgotPassword);
+router.post('/reset-password', UserController.resetPassword);
 
-// Protected routes (require authentication)
-router.get('/', AuthMiddleware.verifyToken, UserController.getAll);
-router.get('/stats', AuthMiddleware.verifyToken, UserController.getStats);
+router.get('/', AuthMiddleware.verifyToken, AuthMiddleware.verifyRole('admin'), UserController.getAll);
+router.get('/stats', AuthMiddleware.verifyToken, AuthMiddleware.verifyRole('admin'), UserController.getStats);
+router.get('/me/stats', AuthMiddleware.verifyToken, UserController.getMyStats);
 router.get('/:userId', AuthMiddleware.verifyToken, UserController.getById);
 router.put('/:userId', AuthMiddleware.verifyToken, UserController.update);
 router.delete('/:userId', AuthMiddleware.verifyToken, UserController.delete);

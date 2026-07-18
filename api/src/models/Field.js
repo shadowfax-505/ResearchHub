@@ -1,14 +1,11 @@
-/**
- * Field Model
- * Handles research field taxonomy and operations
- */
 
-const pool = require('../config/database');
+
+const { pool } = require('../config/database');
 
 class Field {
   static async findAll() {
     const [rows] = await pool.query(
-      'SELECT * FROM RESEARCH_FIELDS ORDER BY parent_field_id, field_name'
+      'SELECT * FROM RESEARCH_FIELDS ORDER BY parent_field_id NULLS FIRST, field_name'
     );
     return this.buildHierarchy(rows);
   }
@@ -21,15 +18,12 @@ class Field {
     if (rows.length === 0) return null;
 
     const field = rows[0];
-    
-    // Get child fields
     const [children] = await pool.query(
       'SELECT * FROM RESEARCH_FIELDS WHERE parent_field_id = ?',
       [fieldId]
     );
     field.children = children;
 
-    // Get parent field
     if (field.parent_field_id) {
       const [parent] = await pool.query(
         'SELECT * FROM RESEARCH_FIELDS WHERE field_id = ?',
@@ -38,9 +32,8 @@ class Field {
       field.parent = parent[0];
     }
 
-    // Get papers in this field
     const [papers] = await pool.query(
-      'SELECT p.* FROM RESEARCH_PAPERS p JOIN PAPER_FIELDS pf ON p.paper_id = pf.paper_id WHERE pf.field_id = ? LIMIT 100',
+      'SELECT p.* FROM RESEARCH_PAPERS p JOIN PAPER_FIELDS pf ON p.paper_id = pf.paper_id WHERE pf.field_id = ? FETCH NEXT 100 ROWS ONLY',
       [fieldId]
     );
     field.papers = papers;
@@ -50,15 +43,15 @@ class Field {
 
   static async search(query, limit = 20, offset = 0) {
     const [rows] = await pool.query(
-      'SELECT * FROM RESEARCH_FIELDS WHERE field_name LIKE ? LIMIT ? OFFSET ?',
-      [`%${query}%`, limit, offset]
+      'SELECT * FROM RESEARCH_FIELDS WHERE LOWER(field_name) LIKE LOWER(?) ORDER BY field_name OFFSET ? ROWS FETCH NEXT ? ROWS ONLY',
+      [`%${query}%`, offset, limit]
     );
     return rows;
   }
 
   static async getHierarchy() {
     const [rows] = await pool.query(
-      'SELECT * FROM RESEARCH_FIELDS ORDER BY parent_field_id, field_name'
+      'SELECT * FROM RESEARCH_FIELDS ORDER BY parent_field_id NULLS FIRST, field_name'
     );
     return this.buildHierarchy(rows);
   }
@@ -67,12 +60,10 @@ class Field {
     const map = {};
     const roots = [];
 
-    // Create map for easy lookup
     rows.forEach(row => {
       map[row.field_id] = { ...row, children: [] };
     });
 
-    // Build hierarchy
     rows.forEach(row => {
       if (row.parent_field_id && map[row.parent_field_id]) {
         map[row.parent_field_id].children.push(map[row.field_id]);

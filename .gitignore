@@ -38,3 +38,9 @@ Thumbs.db
 *.sln
 .vercel
 .env*
+.codebase-memory/
+.superpowers/
+CODE_MODULE_MAPPING.txt
+PROJECT_ROADMAP.md
+_ai_archive/
+

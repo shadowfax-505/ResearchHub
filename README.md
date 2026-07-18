@@ -14,23 +14,12 @@ Your ResearchHub project has been set up with:
 
 ## 📋 Quick Start (5 Steps)
 
-### Step 1: Setup MySQL Database
+### Step 1: Setup Oracle Database
 
 ```bash
-# 1. Create database and user
-mysql -u root -p << 'SETUP'
-CREATE DATABASE researchhub CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'researchhub_user'@'localhost' IDENTIFIED BY 'researchhub_secure_password';
-GRANT ALL PRIVILEGES ON researchhub.* TO 'researchhub_user'@'localhost';
-FLUSH PRIVILEGES;
-SETUP
-
-# 2. Deploy schema
 cd "/Users/muttakinrahman/Database Project/ResearchHub"
-mysql -u researchhub_user -p researchhub < 02_CREATE_TABLES.sql
-
-# 3. Verify (should show 19 tables)
-mysql -u researchhub_user -p researchhub -e "SHOW TABLES;"
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @02_CREATE_TABLES.sql
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @project/database/seeds/seed-data.sql
 ```
 
 ### Step 2: Install Node.js Dependencies
@@ -85,7 +74,7 @@ ResearchHub/
 │   │   ├── server.js                 (Main server)
 │   │   ├── src/
 │   │   │   ├── config/
-│   │   │   │   └── database.js       (MySQL connection)
+│   │   │   │   └── database.js       (Oracle connection)
 │   │   │   ├── controllers/          (API handlers)
 │   │   │   ├── models/               (Data models)
 │   │   │   ├── routes/               (API routes)
@@ -148,37 +137,39 @@ npm run backup
 
 ## 📊 Database Overview
 
-### Tables (19 Total)
+### Tables (24 Total)
 - **Core**: USERS, AUTHORS, JOURNALS, RESEARCH_PAPERS, RESEARCH_FIELDS, KEYWORDS
-- **Junctions**: PAPER_AUTHORS, PAPER_FIELDS, PAPER_KEYWORDS, SAVED_PAPERS, FOLLOWED_AUTHORS, REVIEWS, CITATIONS
-- **Analytics**: SEARCH_HISTORY, AUDIT_LOGS, USER_ACTIVITY
+- **Junctions**: PAPER_AUTHORS, PAPER_FIELDS, PAPER_KEYWORDS, SAVED_PAPERS, FOLLOWED_AUTHORS, REVIEWS, CITATIONS, COLLECTIONS, RESEARCH_REQUESTS
+- **App/Analytics**: NOTIFICATIONS, USER_SETTINGS, SEARCH_HISTORY, AUDIT_LOGS, USER_ACTIVITY, QUESTIONS, ANSWERS, EMAIL_QUEUE, RESEARCHER_STATS
 
 ### Features
 - ✅ Full-text search indexes on paper titles/abstracts
 - ✅ Citation tracking (self-referencing)
 - ✅ User activity logging
+- ✅ Q&A, full-text request queue, and cached researcher stats
 - ✅ Materialized views for reporting
 - ✅ 40+ optimized indexes
 - ✅ 3NF normalized schema
 
 ### Connection Details
-- **Host**: localhost
-- **Port**: 3306
-- **Database**: researchhub
+- **Connect String**: localhost:1521/XEPDB1
+- **Schema**: RESEARCHHUB_USER
 - **User**: researchhub_user
-- **Charset**: utf8mb4
 
 ---
 
-## 🔍 API Endpoints (Ready to Build)
+## 🔍 API Endpoints (Implemented in API)
 
 ### Root
 - `GET /health` - Server health check
 - `GET /api/v1` - API overview
 
-### Resources (To Implement)
-- `GET /api/v1/users` - List users
-- `GET /api/v1/papers` - Search papers
+### Resources
+- `GET /api/v1/users` - List users (admin only)
+- `GET /api/v1/papers/search` - Search papers
+- `POST /api/v1/papers/:paperId/request-fulltext` - Queue full-text requests
+- `GET /api/v1/questions` - Browse Q&A
+- `GET /api/v1/admin/dashboard` - Admin dashboard
 - `GET /api/v1/authors` - List authors
 - `GET /api/v1/journals` - List journals
 - `GET /api/v1/fields` - Research fields
@@ -197,16 +188,16 @@ Each file provides specific guidance:
 | `05_EXAMPLE_QUERIES.sql` | 40+ SQL query examples |
 | `06_DATA_DICTIONARY.md` | Field documentation |
 | `07_IMPLEMENTATION_GUIDE.md` | Implementation details |
+| `PROJECT_ROADMAP.md` | Current implementation checkpoint and next-session handoff |
 | `VISUAL_SCHEMA_DIAGRAM_CORRECTED.txt` | ASCII ER diagram |
 
 ---
 
 ## ✅ Verification Checklist
 
-- [ ] MySQL installed and running (`mysql --version`)
-- [ ] Database created (`researchhub`)
+- [ ] Oracle Database installed and running
 - [ ] User created (`researchhub_user`)
-- [ ] Schema deployed (19 tables created)
+- [ ] Schema deployed (24 tables created)
 - [ ] Node.js and npm installed (`node --version`, `npm --version`)
 - [ ] Dependencies installed (`npm install`)
 - [ ] .env file configured
@@ -230,8 +221,8 @@ Each file provides specific guidance:
 
 ### Server Won't Start
 ```bash
-# Check MySQL is running
-ps aux | grep mysql
+# Check Oracle listener status
+lsnrctl status
 
 # Check port 3000 is available
 lsof -i :3000
@@ -239,11 +230,11 @@ lsof -i :3000
 
 ### Database Connection Failed
 ```bash
-# Test MySQL connection
-mysql -u researchhub_user -p researchhub
+# Test Oracle connection
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1
 
-# Check database exists
-mysql -u root -e "SHOW DATABASES;"
+# Check tables
+SELECT table_name FROM user_tables ORDER BY table_name;
 ```
 
 ### Module Not Found
@@ -293,4 +284,3 @@ npm install
 Everything is ready for development. Start with Step 1 above and follow the quick start guide.
 
 **Happy coding! 🚀**
-

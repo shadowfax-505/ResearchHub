@@ -1,7 +1,4 @@
-/**
- * Journal Routes
- * API endpoints for journal operations
- */
+
 
 const express = require('express');
 const JournalController = require('../controllers/JournalController');

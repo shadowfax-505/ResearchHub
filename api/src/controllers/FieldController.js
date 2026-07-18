@@ -1,7 +1,4 @@
-/**
- * Field Controller
- * Handles research field API requests
- */
+
 
 const Field = require('../models/Field');
 

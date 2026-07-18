@@ -1,7 +1,4 @@
-/**
- * Keyword Controller
- * Handles keyword-related API requests
- */
+
 
 const Keyword = require('../models/Keyword');
 
