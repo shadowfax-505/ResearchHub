@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 export function NetworkView() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [deptFilter, setDeptFilter] = useState('All Recommendations');
 
   const loadNetwork = () => {
     getNetworkRecommendations().then(res => setRecommendations(res.data || []));
@@ -26,17 +27,39 @@ export function NetworkView() {
     }
   };
 
+  const filteredRecommendations = recommendations.filter(r => {
+    if (deptFilter === 'All Recommendations') return true;
+    const text = `${r.department || ''} ${r.affiliation || ''} ${r.position_title || ''}`.toLowerCase();
+    return text.includes(deptFilter.toLowerCase());
+  });
+
   return (
     <div className="space-y-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black">Discover Researchers</h2>
           <p className="mt-1 text-sm text-muted dark:text-darkMuted">Expand your network to discover new publications and projects.</p>
         </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          {['All Recommendations', 'Computer Science', 'Engineering', 'Medicine'].map(cat => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setDeptFilter(cat)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition border ${
+                deptFilter === cat
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-slate-700 border-slate-200 hover:border-primary dark:bg-darkCard dark:border-darkLine dark:text-slate-300'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {recommendations.length ? recommendations.map(rec => (
+        {filteredRecommendations.length ? filteredRecommendations.map(rec => (
           <div key={rec.user_id} className="rounded-soft border border-line bg-paper p-5 shadow-stitch dark:border-darkLine dark:bg-darkCard flex flex-col items-center text-center">
             <div className="h-20 w-20 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mb-4">
               <span className="text-2xl font-bold text-slate-500 dark:text-slate-400">

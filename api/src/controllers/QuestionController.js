@@ -112,6 +112,18 @@ class QuestionController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  static async acceptAnswer(req, res) {
+    try {
+      await Question.acceptAnswer(req.params.answerId, req.user.user_id);
+      res.status(200).json({ success: true, message: 'Answer accepted as solution' });
+    } catch (error) {
+      if (isDatabaseUnavailable(error)) {
+        return res.status(200).json({ success: true, source: 'demo', message: 'Answer accepted as solution' });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = QuestionController;

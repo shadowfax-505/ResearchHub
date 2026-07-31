@@ -8,6 +8,28 @@ try {
 }
 
 class ResearcherProfile {
+  static async getInstitutionalRankings() {
+    const sql = `
+      SELECT u.institution AS institution_name,
+             COUNT(DISTINCT u.user_id) AS researchers_count,
+             COUNT(DISTINCT rp.paper_id) AS total_publications,
+             NVL(SUM(rp.citation_count), 0) AS total_citations,
+             NVL(SUM(rp.view_count), 0) AS total_reads
+      FROM USERS u
+      LEFT JOIN PAPER_AUTHORS pa ON u.user_id = pa.author_id
+      LEFT JOIN RESEARCH_PAPERS rp ON pa.paper_id = rp.paper_id
+      WHERE u.institution IS NOT NULL
+      GROUP BY u.institution
+      ORDER BY total_publications DESC, total_citations DESC
+    `;
+    try {
+      const [rows] = await pool.query(sql);
+      return rows || [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   static async findPublicBySlug(slug) {
     if (!oracledb) throw new Error('Oracle database driver unavailable.');
 

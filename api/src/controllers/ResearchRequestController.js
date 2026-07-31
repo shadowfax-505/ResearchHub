@@ -9,7 +9,7 @@ const requestSchema = Joi.object({
   recipient_user_id: Joi.number().integer().positive(),
   recipient_name: Joi.string().max(150).allow('', null),
   paper_id: Joi.number().integer().positive().allow(null),
-  request_type: Joi.string().valid('full_text', 'collaboration', 'introduction', 'dataset', 'other').default('other'),
+  request_type: Joi.string().valid('full_text', 'collaboration', 'introduction', 'dataset', 'peer_review', 'other').default('other'),
   message: Joi.string().max(2000).required()
 }).or('recipient_user_id', 'recipient_name');
 

@@ -40,6 +40,32 @@ class Project {
     );
     return result.affectedRows;
   }
+
+  static async addUpdate(projectId, userId, body) {
+    // Verify user is owner/member first (or just insert directly as project lead)
+    const [rows] = await pool.query('SELECT user_id FROM PROJECTS WHERE project_id = ?', [projectId]);
+    if (!rows || rows.length === 0) throw new Error('Project not found');
+    if (rows[0].user_id !== userId) throw new Error('Unauthorized to post updates on this project');
+
+    const [result] = await pool.query(
+      'INSERT INTO PROJECT_UPDATES (project_id, user_id, body, created_at) VALUES (?, ?, ?, SYSTIMESTAMP)',
+      [projectId, userId, body],
+      { returnColumn: 'update_id' }
+    );
+    return result.insertId;
+  }
+
+  static async findUpdatesByProject(projectId) {
+    const [rows] = await pool.query(`
+      SELECT pu.update_id, pu.project_id, pu.user_id, TO_CHAR(pu.body) as body, pu.created_at,
+             u.username, u.full_name
+      FROM PROJECT_UPDATES pu
+      JOIN USERS u ON u.user_id = pu.user_id
+      WHERE pu.project_id = ?
+      ORDER BY pu.created_at DESC
+    `, [projectId]);
+    return rows;
+  }
 }
 
 module.exports = Project;

@@ -34,7 +34,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_PROFILE AS
   ) AS
   BEGIN
     OPEN p_profile FOR
-      SELECT u.user_id, u.username, u.full_name, u.affiliation, u.country, u.profile_picture_url, u.bio,
+      SELECT u.user_id, u.username, u.full_name, u.affiliation, u.country, u.profile_picture_url, u.bio, u.is_verified,
              rp.slug, rp.headline, rp.department, rp.position_title, rp.website_url, rp.orcid,
              NVL(rs.followers, 0) followers, NVL(rs.following, 0) following, NVL(rs.total_reads, 0) total_reads,
              NVL(rs.rg_score, 0) rg_score,
@@ -89,7 +89,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_PROFILE AS
   BEGIN
     OPEN p_out FOR
       SELECT * FROM (
-        SELECT u.user_id, u.username, u.full_name, u.affiliation, u.country, u.profile_picture_url, u.bio,
+        SELECT u.user_id, u.username, u.full_name, u.affiliation, u.country, u.profile_picture_url, u.bio, u.is_verified,
                rp.slug, rp.headline, rp.department, rp.position_title, rp.website_url, rp.orcid,
                NVL(rs.followers, 0) followers, NVL(rs.following, 0) following, NVL(rs.total_reads, 0) total_reads,
                NVL(rs.rg_score, 0) rg_score,
