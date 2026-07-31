@@ -17,6 +17,8 @@ import { getNetworkRecommendations, followResearcher, getVerificationStatus, res
 import { UpdatesMenu, MessagesMenu, RequestsMenu, ProfileMenu } from './header-menus';
 import { AddNewDrawer } from './add-new-drawer';
 
+import { AiCopilotDrawer } from '@/components/ai/ai-copilot-drawer';
+
 export function AppShell({ children, title, subtitle, utility = true }: { children: React.ReactNode; title: string; subtitle?: string; utility?: boolean }) {
   const pathname = usePathname();
   const [verification, setVerification] = useState<{ email_verified?: boolean; researcher_verified?: boolean; eligible?: boolean; request?: { status?: string; rejection_reason?: string } } | null>(null);
@@ -189,6 +191,7 @@ export function AppShell({ children, title, subtitle, utility = true }: { childr
           </Link>
         ))}
       </nav>
+      <AiCopilotDrawer />
     </main>
   );
 }

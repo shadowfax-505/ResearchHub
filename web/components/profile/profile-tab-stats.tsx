@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FileText, Award, BarChart2, TrendingUp } from 'lucide-react';
 import { PublicResearcherProfile } from '@/lib/api';
 import Link from 'next/link';
+import { HindexBreakdownCard } from './hindex-breakdown-card';
 
 export function ProfileTabStats({ profile }: { profile: PublicResearcherProfile }) {
   const [activeStat, setActiveStat] = useState('Research Interest Score');
@@ -34,6 +35,8 @@ export function ProfileTabStats({ profile }: { profile: PublicResearcherProfile 
       </div>
 
       {/* Main Stats Cards Grid */}
+      <HindexBreakdownCard totalCitations={totalCitations} />
+
       <section className="rounded-soft border border-line bg-paper shadow-stitch dark:border-darkLine dark:bg-darkCard overflow-hidden">
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-line dark:divide-darkLine">
           {stats.map((s) => (

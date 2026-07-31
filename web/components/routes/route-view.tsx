@@ -24,6 +24,8 @@ import { ReviewMarketplaceModal } from '../papers/review-marketplace-modal';
 import { CitationForecaster } from '../papers/citation-forecaster';
 import { ReviewRebuttalModal } from '../papers/review-rebuttal-modal';
 import { LibraryExportWidget } from '../settings/library-export-widget';
+import { JournalImpactDirectory } from '../journals/journal-impact-directory';
+import { VirtualPosterHub } from '../feed/virtual-poster-hub';
 import {
   Bell,
   Bookmark,
@@ -1861,6 +1863,8 @@ function PaperDetail({ paperId }: { paperId?: string }) {
 
         {activeTab === 'Overview' && (
           <div className="space-y-6 lg:w-2/3">
+            <VirtualPosterHub />
+            <JournalImpactDirectory />
             <div className="bg-white border border-line rounded-sm shadow-sm dark:bg-darkCard dark:border-darkLine p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-medium text-ink dark:text-darkInk">Abstract</h3>
