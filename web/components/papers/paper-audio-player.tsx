@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Pause, Volume2, FastForward, Headphones } from 'lucide-react';
+import { Play, Pause, Volume2, FastForward, Headphones, FileText } from 'lucide-react';
+import { AudioTranscriptModal } from './audio-transcript-modal';
 
 interface PaperAudioPlayerProps {
   paperTitle: string;
@@ -11,6 +12,7 @@ export function PaperAudioPlayer({ paperTitle }: PaperAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<'1x' | '1.25x' | '1.5x'>('1x');
   const [progress, setProgress] = useState(35);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -38,7 +40,7 @@ export function PaperAudioPlayer({ paperTitle }: PaperAudioPlayerProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
         {/* Waveform Bar Simulation */}
         <div className="flex items-center gap-0.5 h-6 cursor-pointer" onClick={() => setProgress((progress + 15) % 100)}>
           {[40, 75, 30, 90, 60, 100, 45, 80, 55, 35, 70, 95, 50, 65, 30, 85].map((h, idx) => (
@@ -54,12 +56,22 @@ export function PaperAudioPlayer({ paperTitle }: PaperAudioPlayerProps) {
 
         <button
           type="button"
+          onClick={() => setShowTranscript(true)}
+          className="px-2.5 py-1 bg-white border border-slate-200 dark:bg-darkCard dark:border-darkLine rounded text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:border-primary shrink-0 flex items-center gap-1"
+        >
+          <FileText size={12} /> Transcript
+        </button>
+
+        <button
+          type="button"
           onClick={nextSpeed}
           className="px-2 py-1 bg-white border border-slate-200 dark:bg-darkCard dark:border-darkLine rounded text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:border-primary shrink-0"
         >
           {speed}
         </button>
       </div>
+
+      <AudioTranscriptModal isOpen={showTranscript} onClose={() => setShowTranscript(false)} paperTitle={paperTitle} />
     </div>
   );
 }

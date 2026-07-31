@@ -31,6 +31,7 @@ import { ReviewerScoringMatrix } from '../papers/reviewer-scoring-matrix';
 import { BibtexNormalizerModal } from '../papers/bibtex-normalizer-modal';
 import { CoiAuditBadge } from '../papers/coi-audit-badge';
 import { CodeReproducibilityCard } from '../papers/code-reproducibility-card';
+import { ReferenceIntegrityCard } from '../papers/reference-integrity-card';
 import {
   Bell,
   Bookmark,
@@ -1567,6 +1568,7 @@ function PaperReviews({ paperId }: { paperId: string }) {
 
       <CodeReproducibilityCard />
       <CoiAuditBadge />
+      <ReferenceIntegrityCard />
       <ReviewerScoringMatrix />
 
       {/* List Reviews */}
