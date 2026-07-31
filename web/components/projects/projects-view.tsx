@@ -9,9 +9,13 @@ import { ProjectResourceTracker } from './project-resource-tracker';
 import { GrantFundingFinder } from './grant-funding-finder';
 import { LabEquipmentRegistry } from './lab-equipment-registry';
 import { GrantProposalModal } from './grant-proposal-modal';
+import { IpAgreementModal } from './ip-agreement-modal';
+import { GrantBudgetCalculatorModal } from './grant-budget-calculator-modal';
 
 export function ProjectsView() {
   const [showGrantProposal, setShowGrantProposal] = useState(false);
+  const [showIpAgreement, setShowIpAgreement] = useState(false);
+  const [showBudgetCalc, setShowBudgetCalc] = useState(false);
   const [user, setUser] = useState<{ user_id?: number; username?: string; role?: string } | null>(null);
 
   useEffect(() => {
@@ -138,6 +142,20 @@ export function ProjectsView() {
               Done
             </button>
           </div>
+
+          <button
+            onClick={() => setShowBudgetCalc(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-darkPanel text-slate-800 dark:text-slate-200 border border-line dark:border-darkLine rounded text-xs font-bold hover:bg-slate-200 transition"
+          >
+            💵 Estimate Grant Budget
+          </button>
+
+          <button
+            onClick={() => setShowIpAgreement(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-darkPanel text-slate-800 dark:text-slate-200 border border-line dark:border-darkLine rounded text-xs font-bold hover:bg-slate-200 transition"
+          >
+            ⚖️ Sign IP Rights Agreement
+          </button>
 
           {activeTab === 'my-projects' && (
             <button
@@ -333,6 +351,8 @@ export function ProjectsView() {
         </div>
       )}
       <GrantProposalModal isOpen={showGrantProposal} onClose={() => setShowGrantProposal(false)} />
+      <IpAgreementModal isOpen={showIpAgreement} onClose={() => setShowIpAgreement(false)} />
+      <GrantBudgetCalculatorModal isOpen={showBudgetCalc} onClose={() => setShowBudgetCalc(false)} />
     </div>
   );
 }

@@ -28,6 +28,9 @@ import { JournalImpactDirectory } from '../journals/journal-impact-directory';
 import { VirtualPosterHub } from '../feed/virtual-poster-hub';
 import { BatchCitationExportModal } from '../papers/batch-citation-export-modal';
 import { ReviewerScoringMatrix } from '../papers/reviewer-scoring-matrix';
+import { BibtexNormalizerModal } from '../papers/bibtex-normalizer-modal';
+import { CoiAuditBadge } from '../papers/coi-audit-badge';
+import { CodeReproducibilityCard } from '../papers/code-reproducibility-card';
 import {
   Bell,
   Bookmark,
@@ -1562,6 +1565,8 @@ function PaperReviews({ paperId }: { paperId: string }) {
         </div>
       </form>
 
+      <CodeReproducibilityCard />
+      <CoiAuditBadge />
       <ReviewerScoringMatrix />
 
       {/* List Reviews */}
@@ -2382,6 +2387,7 @@ function CitationPanel() {
   const [format, setFormat] = useState<'bib' | 'txt'>('bib');
   const [citation, setCitation] = useState('');
   const [showBatchExport, setShowBatchExport] = useState(false);
+  const [showBibtexCleaner, setShowBibtexCleaner] = useState(false);
 
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2400,12 +2406,20 @@ function CitationPanel() {
     <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard space-y-4">
       <div className="flex justify-between items-center pb-2 border-b border-line dark:border-darkLine">
         <h3 className="font-bold text-sm text-ink dark:text-white">Citation Exporter & Bibliography Tools</h3>
-        <button
-          onClick={() => setShowBatchExport(true)}
-          className="px-3 py-1.5 bg-primary text-white rounded text-xs font-bold hover:bg-primaryDark transition"
-        >
-          + Batch Bibliography Exporter (.bib / .ris)
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBibtexCleaner(true)}
+            className="px-3 py-1.5 bg-slate-100 dark:bg-darkPanel text-slate-800 dark:text-slate-200 border border-line dark:border-darkLine rounded text-xs font-bold hover:bg-slate-200 transition"
+          >
+            🧹 Clean BibTeX Syntax
+          </button>
+          <button
+            onClick={() => setShowBatchExport(true)}
+            className="px-3 py-1.5 bg-primary text-white rounded text-xs font-bold hover:bg-primaryDark transition"
+          >
+            + Batch Bibliography Exporter (.bib / .ris)
+          </button>
+        </div>
       </div>
 
       <form className="grid gap-4 md:grid-cols-[1fr_12rem_auto]" onSubmit={generate}>
@@ -2419,6 +2433,7 @@ function CitationPanel() {
       <pre className="mt-5 overflow-auto rounded-lg bg-slate-950 p-4 text-sm leading-6 text-blue-100">{citation || 'Citation output will appear here and copy to clipboard.'}</pre>
       <LibraryExportWidget />
       <BatchCitationExportModal isOpen={showBatchExport} onClose={() => setShowBatchExport(false)} />
+      <BibtexNormalizerModal isOpen={showBibtexCleaner} onClose={() => setShowBibtexCleaner(false)} />
     </section>
   );
 }

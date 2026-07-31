@@ -8,6 +8,7 @@ import { OfficeHoursModal } from './office-hours-modal';
 import { CoauthorGraph } from './coauthor-graph';
 import { TaxonomyTagCloud } from './taxonomy-tag-cloud';
 import { ReviewerVelocityCard } from './reviewer-velocity-card';
+import { OrcidSyncWidget } from './orcid-sync-widget';
 
 export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResearcherProfile, onUpdate?: () => void }) {
   const [addingEdu, setAddingEdu] = useState(false);
@@ -110,6 +111,7 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
       </div>
 
       <div className="mt-6 space-y-6">
+        <OrcidSyncWidget />
         <TaxonomyTagCloud />
         <ReviewerVelocityCard />
         <CoauthorGraph authorName={profile?.full_name || profile?.username || 'Scholar'} />
