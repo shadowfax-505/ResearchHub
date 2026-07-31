@@ -8,8 +8,10 @@ import { ProjectNotesModal } from './project-notes-modal';
 import { ProjectResourceTracker } from './project-resource-tracker';
 import { GrantFundingFinder } from './grant-funding-finder';
 import { LabEquipmentRegistry } from './lab-equipment-registry';
+import { GrantProposalModal } from './grant-proposal-modal';
 
 export function ProjectsView() {
+  const [showGrantProposal, setShowGrantProposal] = useState(false);
   const [user, setUser] = useState<{ user_id?: number; username?: string; role?: string } | null>(null);
 
   useEffect(() => {
@@ -330,6 +332,7 @@ export function ProjectsView() {
           </div>
         </div>
       )}
+      <GrantProposalModal isOpen={showGrantProposal} onClose={() => setShowGrantProposal(false)} />
     </div>
   );
 }

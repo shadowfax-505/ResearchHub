@@ -6,6 +6,8 @@ import { PaperCard } from '@/components/papers/paper-card';
 import { PortfolioExporterModal } from './portfolio-exporter-modal';
 import { OfficeHoursModal } from './office-hours-modal';
 import { CoauthorGraph } from './coauthor-graph';
+import { TaxonomyTagCloud } from './taxonomy-tag-cloud';
+import { ReviewerVelocityCard } from './reviewer-velocity-card';
 
 export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResearcherProfile, onUpdate?: () => void }) {
   const [addingEdu, setAddingEdu] = useState(false);
@@ -108,6 +110,9 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
       </div>
 
       <div className="mt-6 space-y-6">
+        <TaxonomyTagCloud />
+        <ReviewerVelocityCard />
+        <CoauthorGraph authorName={profile?.full_name || profile?.username || 'Scholar'} />
         {/* Research & Publications */}
         {papers.length > 0 && (
           <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
