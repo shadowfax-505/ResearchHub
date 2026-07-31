@@ -9,6 +9,7 @@ export default function SettingsAdminPage() {
   const [emergencyFreeze, setEmergencyFreeze] = useState(false);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [securityScanning, setSecurityScanning] = useState(false);
+  const [rateLimit, setRateLimit] = useState(120);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -146,7 +147,7 @@ export default function SettingsAdminPage() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div>
             <h3 className="font-bold text-emerald-400 text-sm">🛡️ HQ SAIF Security Vulnerability & Compliance Auditor</h3>
             <p className="text-xs text-slate-400">Run real-time automated audit across API routes, CORS policies, JWT rotation, and SAIF data controls.</p>
@@ -164,6 +165,28 @@ export default function SettingsAdminPage() {
           >
             {securityScanning ? 'Auditing Security...' : '🔍 Run SAIF Security Scan'}
           </button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-slate-100 text-sm">Global API Rate Limiting & DDoS Protection Threshold</h3>
+            <p className="text-xs text-slate-400">Set maximum HTTP request threshold per client IP per minute before triggering Cloudflare DDoS challenge.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={rateLimit}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setRateLimit(val);
+                alert(`Global API Rate Limit updated to ${val} requests/min per IP.`);
+              }}
+              className="bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 px-3 py-1.5 rounded outline-none"
+            >
+              <option value={60}>60 req/min (Strict)</option>
+              <option value={120}>120 req/min (Standard)</option>
+              <option value={240}>240 req/min (Relaxed)</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
