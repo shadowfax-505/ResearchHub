@@ -51,3 +51,30 @@ exports.updateStatus = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+exports.addUpdate = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const projectId = parseInt(req.params.projectId, 10);
+    const { body } = req.body;
+    if (!body) {
+      return res.status(400).json({ error: 'body is required' });
+    }
+    const updateId = await Project.addUpdate(projectId, userId, body);
+    res.status(201).json({ success: true, data: { update_id: updateId, project_id: projectId, user_id: userId, body } });
+  } catch (error) {
+    console.error('Error adding project update:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
+  }
+};
+
+exports.getUpdates = async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const updates = await Project.findUpdatesByProject(projectId);
+    res.json({ data: updates });
+  } catch (error) {
+    console.error('Error fetching project updates:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};

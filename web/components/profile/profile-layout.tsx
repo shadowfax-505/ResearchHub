@@ -11,6 +11,9 @@ import { ProfileTabSaved } from './profile-tab-saved';
 import { BadgeCheck, Loader2 } from 'lucide-react';
 import { getMyProfile, PublicResearcherProfile } from '@/lib/api';
 import { EditProfileModal } from './edit-profile-modal';
+import { ScholarBadges } from './scholar-badges';
+import { VerificationRequestModal } from './verification-request-modal';
+import { ProfileShareModal } from './profile-share-modal';
 
 export function ProfileLayout() {
   const router = useRouter();
@@ -18,6 +21,8 @@ export function ProfileLayout() {
   const [profile, setProfile] = useState<PublicResearcherProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -87,17 +92,36 @@ export function ProfileLayout() {
                     </h1>
                     <p className="mt-1 font-semibold text-slate-700 dark:text-slate-300">{profile.headline || profile.position_title}</p>
                     <p className="mt-1 text-sm text-muted dark:text-darkMuted">{[profile.department, profile.affiliation, profile.country].filter(Boolean).join(' · ')}</p>
+                    <ScholarBadges profile={profile} />
                     <div className="mt-4 flex gap-6 text-sm font-bold text-slate-700 dark:text-slate-300">
                        <div className="flex flex-col"><span className="text-xl font-black text-ink dark:text-darkInk">{profile.total_reads || 0}</span> Reads</div>
                        <div className="flex flex-col"><span className="text-xl font-black text-ink dark:text-darkInk">{profile.rg_score || 0}</span> RI Score</div>
                     </div>
                  </div>
                </div>
-               <div className="flex gap-3">
-                 <Button variant="secondary" className="font-bold" onClick={() => setIsEditModalOpen(true)}>Edit</Button>
-               </div>
-            </div>
-         </div>
+                <div className="flex gap-3">
+                  {!(profile.is_verified || profile.researcher_verified_at) && (
+                    <Button variant="outline" className="font-bold border-teal-600 text-teal-700 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-300 dark:hover:bg-teal-950/40" onClick={() => setIsVerifyModalOpen(true)}>
+                      Get Verified
+                    </Button>
+                  )}
+                  <Button variant="outline" className="font-bold" onClick={() => setIsShareModalOpen(true)}>Share Profile</Button>
+                  <Button variant="secondary" className="font-bold" onClick={() => setIsEditModalOpen(true)}>Edit</Button>
+                </div>
+             </div>
+          </div>
+
+          <VerificationRequestModal
+            isOpen={isVerifyModalOpen}
+            onClose={() => setIsVerifyModalOpen(false)}
+          />
+
+          <ProfileShareModal
+            profile={profile}
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
+          />
+
          {/* Tabs Navigation */}
          <div className="flex items-center justify-between border-t border-line px-6 dark:border-darkLine">
             <nav className="flex gap-8 text-sm font-bold">

@@ -17,6 +17,7 @@ router.put('/me', AuthMiddleware.verifyToken, ResearcherProfileController.update
 router.get('/me/verification-status', AuthMiddleware.verifyToken, ResearcherProfileController.verificationStatus);
 router.post('/me/verification-request', AuthMiddleware.verifyToken, ResearcherProfileController.requestVerification);
 router.post('/me/avatar', AuthMiddleware.verifyToken, avatarUpload.single('file'), require('../controllers/UploadController').uploadAvatar);
+router.get('/institutions/rankings', ResearcherProfileController.getInstitutionalRankings);
 router.get('/', ResearcherProfileController.listResearchers);
 router.get('/:slug/contributions', ResearcherProfileController.contributions);
 router.get('/:slug', ResearcherProfileController.getPublic);

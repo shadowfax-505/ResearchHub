@@ -320,6 +320,9 @@ export type ModerationCase = {
   priority?: string;
   reason_code?: string;
   reporter_username?: string;
+  title?: string;
+  entity_type?: string;
+  notes?: string;
   created_at?: string;
 };
 
@@ -329,8 +332,10 @@ export type EmailQueueItem = {
   recipient_email?: string;
   subject?: string;
   status?: string;
+  attempts?: number;
   error_message?: string;
   queued_at?: string;
+  created_at?: string;
 };
 
 const questionListSchema = z.object({
@@ -501,7 +506,7 @@ export async function updateSettings(payload: unknown) {
   });
 }
 
-export async function exportCitation(paperId: number, format: 'bib' | 'txt' = 'bib'): Promise<CitationExportResult> {
+export async function exportCitation(paperId: number, format: string = 'bib'): Promise<CitationExportResult> {
   return authFetch(`/api/v1/citations/export?paper_id=${paperId}&format=${format}`) as Promise<CitationExportResult>;
 }
 
@@ -612,6 +617,14 @@ export const updateProjectStatus = (projectId: number, status: string) =>
     body: JSON.stringify({ status }),
   }) as Promise<any>;
 
+export const getProjectUpdates = (projectId: number) => authFetch(`${API_BASE}/projects/${projectId}/updates`) as Promise<any>;
+export const addProjectUpdate = (projectId: number, body: string) => 
+  authFetch(`${API_BASE}/projects/${projectId}/updates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  }) as Promise<any>;
+
 // ==========================================
 // NETWORK
 // ==========================================
@@ -669,6 +682,20 @@ export async function getTrendingFields() {
 export async function getUsers(limit = 20, offset = 0): Promise<{ success?: boolean; source?: string; data?: UserSummary[]; pagination?: { limit?: number; offset?: number; total?: number } }> {
   const result = await authFetch(`/api/v1/users?limit=${limit}&offset=${offset}`) as { success?: boolean; source?: string; data?: UserSummary[]; pagination?: { limit?: number; offset?: number; total?: number } };
   return result;
+}
+
+export async function getInstitutionalRankings() {
+  return authFetch('/api/v1/researchers/institutions/rankings') as Promise<{
+    success?: boolean;
+    data?: Array<{
+      institution_name: string;
+      country?: string;
+      researchers_count: number;
+      total_publications: number;
+      total_citations: number;
+      total_reads: number;
+    }>;
+  }>;
 }
 
 export async function getResearchers(limit = 20, offset = 0) {
@@ -782,6 +809,10 @@ export async function getUnverifiedUsers() {
 
 export async function verifyUser(userId: number) {
   return authFetch(`/api/v1/admin/users/${userId}/verify`, { method: 'PUT' });
+}
+
+export async function recalculateAdminStats() {
+  return authFetch('/api/v1/admin/stats/recalculate', { method: 'POST' });
 }
 
 export async function getQuestions(tab = 'all', limit = 20, offset = 0) {

@@ -10,5 +10,6 @@ router.get('/:questionId', QuestionController.getById);
 router.post('/', AuthMiddleware.verifyToken, QuestionController.create);
 router.post('/:questionId/answers', AuthMiddleware.verifyToken, QuestionController.answer);
 router.post('/answers/:answerId/upvote', AuthMiddleware.verifyToken, QuestionController.upvoteAnswer);
+router.post('/answers/:answerId/accept', AuthMiddleware.verifyToken, QuestionController.acceptAnswer);
 
 module.exports = router;

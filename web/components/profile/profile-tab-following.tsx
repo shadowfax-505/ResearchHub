@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { PublicResearcherProfile } from '@/lib/api';
 import { getResearcherFollowingList } from '@/lib/api';
+import { CollaborationRadar } from './collaboration-radar';
 
 export function ProfileTabFollowing({ profile }: { profile: PublicResearcherProfile }) {
   const [following, setFollowing] = useState<any[]>([]);
@@ -24,7 +25,12 @@ export function ProfileTabFollowing({ profile }: { profile: PublicResearcherProf
 
   return (
     <div className="space-y-6 animate-in fade-in">
-        <h2 className="mb-4 text-xl font-black text-ink dark:text-darkInk">Following ({following.length})</h2>
+      <CollaborationRadar
+        currentAffiliation={profile.affiliation || 'Stanford University'}
+        currentDepartment={profile.department || 'Computer Science'}
+      />
+
+      <h2 className="mb-4 text-xl font-black text-ink dark:text-darkInk">Following ({following.length})</h2>
         <div className="flex items-center gap-3 border-b border-line pb-4 dark:border-darkLine">
            <button className="rounded-full bg-slate-900 px-4 py-1.5 font-bold text-white dark:bg-white dark:text-slate-900">Researchers</button>
         </div>

@@ -107,6 +107,36 @@ class Question {
     return result.affectedRows;
   }
 
+  static async acceptAnswer(answerId, userId) {
+    const [rows] = await pool.query(
+      `SELECT q.user_id, q.question_id 
+       FROM ANSWERS a 
+       JOIN QUESTIONS q ON q.question_id = a.question_id 
+       WHERE a.answer_id = ?`,
+      [answerId]
+    );
+    if (!rows || rows.length === 0) {
+      throw new Error('Answer not found');
+    }
+    if (rows[0].user_id !== userId) {
+      throw new Error('Unauthorized to accept answer for this question');
+    }
+
+    const questionId = rows[0].question_id;
+
+    await pool.query(
+      'UPDATE ANSWERS SET is_accepted = 0, updated_at = SYSTIMESTAMP WHERE question_id = ?',
+      [questionId]
+    );
+
+    const [result] = await pool.query(
+      'UPDATE ANSWERS SET is_accepted = 1, updated_at = SYSTIMESTAMP WHERE answer_id = ?',
+      [answerId]
+    );
+
+    return result.affectedRows;
+  }
+
   static async getStats() {
     const [rows] = await pool.query(`
       SELECT COUNT(*) AS total_questions, NVL(SUM(answer_count), 0) AS total_answers, NVL(SUM(view_count), 0) AS total_views

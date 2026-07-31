@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, Building2, AlignLeft, GraduationCap, CheckCircle2, FlaskConical, Users, Plus, X, Trash2, Briefcase, BookOpen, Code2, Globe2, FileText } from 'lucide-react';
+import { Camera, Building2, AlignLeft, GraduationCap, CheckCircle2, FlaskConical, Users, Plus, X, Trash2, Briefcase, BookOpen, Code2, Globe2, FileText, Download, Calendar } from 'lucide-react';
 import { PublicResearcherProfile, Education, Experience, Skill, Language, Discipline, addEducation, deleteEducation, addExperience, deleteExperience, addSkill, deleteSkill, addLanguage, deleteLanguage, addDiscipline, deleteDiscipline, getAuthorPapers } from '@/lib/api';
 import { PaperCard } from '@/components/papers/paper-card';
+import { PortfolioExporterModal } from './portfolio-exporter-modal';
+import { OfficeHoursModal } from './office-hours-modal';
+import { CoauthorGraph } from './coauthor-graph';
 
 export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResearcherProfile, onUpdate?: () => void }) {
   const [addingEdu, setAddingEdu] = useState(false);
@@ -49,13 +52,35 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
     }
   };
 
+  const [selectedYear, setSelectedYear] = useState('All Years');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showOfficeHoursModal, setShowOfficeHoursModal] = useState(false);
+
+  const filteredPapers = papers.filter(p => {
+    if (selectedYear === 'All Years') return true;
+    const year = p.publication_date ? new Date(p.publication_date).getFullYear().toString() : '';
+    if (selectedYear === '2023 & earlier') {
+      return Number(year) <= 2023 || !year;
+    }
+    return year === selectedYear;
+  });
+
   return (
     <div className="w-full">
       <div className={`grid gap-6 ${!profile.is_verified ? 'lg:grid-cols-[1fr_300px]' : 'w-full'}`}>
         
         {/* Introduction */}
         <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
-          <h2 className="mb-4 text-xl font-black text-ink dark:text-darkInk">Introduction</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-black text-ink dark:text-darkInk">Introduction</h2>
+            <button
+              type="button"
+              onClick={() => setShowOfficeHoursModal(true)}
+              className="px-3 py-1 bg-teal-600 text-white rounded font-bold text-xs hover:bg-teal-500 transition flex items-center gap-1.5"
+            >
+              <Calendar size={13} /> Book Office Hours
+            </button>
+          </div>
           {profile.bio ? (
             <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-300">{profile.bio}</p>
           ) : (
@@ -86,11 +111,38 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
         {/* Research & Publications */}
         {papers.length > 0 && (
           <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
-            <h2 className="mb-4 text-xl font-black text-ink dark:text-darkInk flex items-center gap-2">
-              <FileText size={20} /> Research & Publications ({papers.length})
-            </h2>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+              <h2 className="text-xl font-black text-ink dark:text-darkInk flex items-center gap-2">
+                <FileText size={20} /> Research & Publications ({filteredPapers.length})
+              </h2>
+              <div className="flex items-center gap-2 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(true)}
+                  className="px-3 py-1 bg-primary text-white rounded-full text-xs font-bold transition flex items-center gap-1 shrink-0 hover:bg-primaryDark"
+                >
+                  <Download size={12} /> Export Portfolio
+                </button>
+                <span className="text-xs font-bold text-slate-500 mr-1">Year:</span>
+                {['All Years', '2026', '2025', '2024', '2023 & earlier'].map(year => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => setSelectedYear(year)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-bold transition border ${
+                      selectedYear === year
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-primary dark:bg-darkPanel dark:border-darkLine dark:text-slate-300'
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-4">
-              {papers.map(paper => (
+              {filteredPapers.map(paper => (
                 <PaperCard key={paper.paper_id} paper={paper} />
               ))}
             </div>
@@ -311,6 +363,20 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
         </section>
 
       </div>
+
+      <PortfolioExporterModal
+        authorName={profile.full_name || profile.username || 'Researcher'}
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
+
+      <OfficeHoursModal
+        scholarName={profile.full_name || profile.username || 'Researcher'}
+        isOpen={showOfficeHoursModal}
+        onClose={() => setShowOfficeHoursModal(false)}
+      />
+
+      <CoauthorGraph authorName={profile.full_name || profile.username || 'Researcher'} />
     </div>
   );
 }

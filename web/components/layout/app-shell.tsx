@@ -23,11 +23,20 @@ export function AppShell({ children, title, subtitle, utility = true }: { childr
   const [verificationStatus, setVerificationStatus] = useState('');
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMaintenance, setIsMaintenance] = useState(false);
 
   useEffect(() => {
     setIsAdmin(getStoredSessionRole() === 'admin');
+    const checkMaint = () => {
+      if (typeof window !== 'undefined') {
+        setIsMaintenance(window.localStorage.getItem('researchhub_maintenance_mode') === 'true');
+      }
+    };
+    checkMaint();
+    window.addEventListener('storage', checkMaint);
     if (!hasStoredSession()) return;
     getVerificationStatus().then(result => setVerification(result.data || null)).catch(() => setVerification(null));
+    return () => window.removeEventListener('storage', checkMaint);
   }, []);
 
   async function handleVerification() {
@@ -86,10 +95,27 @@ export function AppShell({ children, title, subtitle, utility = true }: { childr
             <MessagesMenu />
             <RequestsMenu />
           </div>
+          <button
+            type="button"
+            title="Toggle OLED High-Contrast Mode"
+            onClick={() => {
+              document.documentElement.classList.toggle('dark');
+            }}
+            className="p-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-white transition rounded-full hover:bg-slate-100 dark:hover:bg-darkPanel"
+          >
+            <span className="text-xs font-black font-mono">OLED</span>
+          </button>
           <ProfileMenu />
           <AddNewDrawer />
         </div>
       </header>
+
+      {isMaintenance && (
+        <div className="bg-amber-500 text-slate-950 font-bold px-4 py-2 text-center text-xs tracking-wide shadow-sm flex items-center justify-center gap-2">
+          <span>⚠️</span>
+          <span>HQ SYSTEM NOTICE: ResearchHub Maintenance Mode is currently active. Public endpoints are in Read-Only state.</span>
+        </div>
+      )}
 
       <div className={clsx('mx-auto grid max-w-[1080px] gap-8 px-4 py-7 md:px-6', utility ? 'lg:grid-cols-[minmax(0,1fr)_19rem]' : 'lg:grid-cols-1')}>
         <section className="min-w-0 pb-20 lg:pb-0">
