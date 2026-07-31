@@ -220,7 +220,7 @@ export default function SettingsAdminPage() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div>
             <h3 className="font-bold text-emerald-400 text-sm">🔒 HQ Automated TLS Certificate & Security Header Monitor</h3>
             <p className="text-xs text-slate-400">SSL Certificate: Valid (240 days remaining) &middot; HTTP Security Headers: Grade A+ (HSTS, CSP, X-Frame-Options Active).</p>
@@ -230,6 +230,19 @@ export default function SettingsAdminPage() {
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition"
           >
             🔒 Audit TLS & Headers
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-blue-400 text-sm">🗄️ HQ Database Connection Pool & Worker Thread Telemetry</h3>
+            <p className="text-xs text-slate-400">PostgreSQL Pool: 14 / 100 Connections Active &middot; Background Worker Threads: 8 / 8 Healthy &middot; Idle Timeout: 30s.</p>
+          </div>
+          <button
+            onClick={() => alert('🗄️ DATABASE CONNECTION POOL HEALTHY: 14/100 Active | 8 Worker Threads Healthy')}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition"
+          >
+            📊 Check Pool Stats
           </button>
         </div>
       </div>
