@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Calendar, Clock, MapPin, ExternalLink, Bookmark, Send } from 'lucide-react';
 import { ConferenceSubmissionModal } from './conference-submission-modal';
+import { ConferenceScheduleCalendar } from './conference-schedule-calendar';
 
 export function ConferenceTracker() {
   const [submittingConf, setSubmittingConf] = useState<string | null>(null);
@@ -24,6 +25,8 @@ export function ConferenceTracker() {
           View All Conferences &rarr;
         </span>
       </div>
+
+      <ConferenceScheduleCalendar />
 
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
         {conferences.map((conf, idx) => (
