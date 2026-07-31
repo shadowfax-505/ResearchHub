@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getNetworkRecommendations, followResearcher } from '@/lib/api';
 import { UserPlus, Users, MapPin, Building } from 'lucide-react';
 import Link from 'next/link';
+import { CollaborationMatchRadar } from './collaboration-match-radar';
 
 export function NetworkView() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -35,6 +36,7 @@ export function NetworkView() {
 
   return (
     <div className="space-y-6">
+      <CollaborationMatchRadar />
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black">Discover Researchers</h2>
