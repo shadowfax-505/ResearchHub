@@ -31,9 +31,8 @@ ALTER USER researchhub_user QUOTA UNLIMITED ON USERS;
 Apply the schema and seed data:
 
 ```bash
-cd "/Users/muttakinrahman/Database Project/ResearchHub"
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @02_CREATE_TABLES.sql
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @project/database/seeds/seed-data.sql
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/schema.sql
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/seeds/seed-data.sql
 ```
 
 Verify tables:
@@ -47,7 +46,7 @@ SELECT COUNT(*) AS table_count FROM user_tables;
 Install dependencies and start the server:
 
 ```bash
-cd "/Users/muttakinrahman/Database Project/ResearchHub/project/api"
+cd api
 npm install
 npm run dev
 ```
@@ -74,7 +73,7 @@ curl http://localhost:3000/api/v1
 Run schema and seed scripts through npm:
 
 ```bash
-cd "/Users/muttakinrahman/Database Project/ResearchHub/project/api"
+cd api
 npm run migrate
 npm run seed
 ```
@@ -83,22 +82,23 @@ npm run seed
 
 ```text
 ResearchHub/
-├── 02_CREATE_TABLES.sql
-├── project/
-│   ├── .env.example
-│   ├── docker-compose.yml
-│   ├── database/
-│   │   └── seeds/
-│   └── api/
-│       ├── server.js
-│       ├── scripts/
-│       ├── src/
-│       │   ├── config/
-│       │   ├── controllers/
-│       │   ├── models/
-│       │   ├── routes/
-│       │   └── middleware/
-│       └── tests/
+├── .env.example
+├── docker-compose.yml
+├── database/
+│   ├── schema.sql
+│   ├── migrations/
+│   └── seeds/
+├── api/
+│   ├── server.js
+│   ├── scripts/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   └── middleware/
+│   └── tests/
+└── web/
 ```
 
 ## Troubleshooting
@@ -106,15 +106,15 @@ ResearchHub/
 - `ORA-12154` or `NJS-511`: verify `DB_CONNECT_STRING` and that the listener is reachable.
 - `ORA-00942`: run the schema script as `researchhub_user`.
 - `ORA-29855` or Oracle Text errors: grant `CTXAPP` to `researchhub_user` or ask the DBA to create the text indexes.
-- `MODULE_NOT_FOUND`: run `npm install` in `project/api`.
+- `MODULE_NOT_FOUND`: run `npm install` in `api`.
 - `PORT in use`: stop the process using port `3000` or change `API_PORT`.
 
 ## Verification Checklist
 - [ ] Oracle is running and reachable on port `1521`
 - [ ] `researchhub_user` exists and can connect
-- [ ] `02_CREATE_TABLES.sql` has been applied
+- [ ] `database/schema.sql` has been applied
 - [ ] Seed data has been loaded if needed
-- [ ] `project/api/.env` uses Oracle connection values
+- [ ] `api/.env` uses Oracle connection values
 - [ ] API dependencies are installed
 - [ ] `npm run lint` passes
 - [ ] `npm test` passes

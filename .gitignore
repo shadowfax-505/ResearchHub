@@ -45,3 +45,4 @@ web/out/
 
 # User uploads
 api/storage/uploads/
+*.tsbuildinfo

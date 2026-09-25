@@ -13,7 +13,7 @@ try {
 }
 
 const MIGRATIONS_DIR = path.join(__dirname, '..', '..', 'database', 'migrations');
-const SCHEMA_FILE = path.join(__dirname, '..', '..', '..', '02_CREATE_TABLES.sql');
+const SCHEMA_FILE = path.join(__dirname, '..', '..', 'database', 'schema.sql');
 
 function splitStatements(sql) {
   return sql

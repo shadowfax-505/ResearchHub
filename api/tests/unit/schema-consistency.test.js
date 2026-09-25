@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const schemaPath = path.join(__dirname, '..', '..', '..', '..', '02_CREATE_TABLES.sql');
+const schemaPath = path.join(__dirname, '..', '..', '..', 'database', 'schema.sql');
 
 describe('database schema consistency', () => {
   const schema = fs.readFileSync(schemaPath, 'utf8');

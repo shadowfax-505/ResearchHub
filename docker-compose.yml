@@ -42,7 +42,7 @@ services:
       - '1521:1521'
     volumes:
       - db_data:/opt/oracle/oradata
-      - ../02_CREATE_TABLES.sql:/container-entrypoint-initdb.d/01_schema.sql
+      - ./database/schema.sql:/container-entrypoint-initdb.d/01_schema.sql
       - ./database/seeds/seed-data.sql:/container-entrypoint-initdb.d/02_seed.sql
 
 volumes:

@@ -13,7 +13,7 @@ This document explains how to deploy ResearchHub with Oracle Database locally, t
 Copy the example environment file and set deployment values.
 
 ```bash
-cd project/api
+cd api
 cp .env.example .env
 ```
 
@@ -30,15 +30,15 @@ Required values:
 Install dependencies:
 
 ```bash
-cd project/api
+cd api
 npm install
 ```
 
 Apply schema and seed data:
 
 ```bash
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @../../02_CREATE_TABLES.sql
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @../database/seeds/seed-data.sql
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/schema.sql
+sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/seeds/seed-data.sql
 ```
 
 Start the server:
