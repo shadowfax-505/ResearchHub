@@ -33,52 +33,37 @@ docs/           API reference, setup and deployment guides, project report
 
 ## Getting started
 
-### 1. Database
+Use Node.js 22.12 or later. Follow [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) to create a dedicated Oracle user and configure private credentials. The verified local path runs the API and web on the host against Oracle Free 23; all commands below run from the repository root.
 
-Start the development Oracle service. The API migration runner applies the schema; seeding is explicit:
-
-```bash
-docker compose up -d db
-```
-
-For an existing instance, create the application user, set `api/.env`, and use `npm --prefix api run migrate`. The low-level initial schema can also be applied with SQL*Plus; do not reapply it to a populated schema:
-
-```bash
-sqlplus researchhub_user/<password>@localhost:1521/XEPDB1 @database/schema.sql
-sqlplus researchhub_user/<password>@localhost:1521/XEPDB1 @database/seeds/seed-data.sql
-```
-
-See [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) for creating the database user.
-
-### 2. Configure
-
-```bash
-cp api/.env.example api/.env   # set DB_* values and JWT_SECRET
-```
-
-### 3. Install and run
-
-```bash
+```sh
 npm run install:all
+cp api/.env.example api/.env
+# Edit api/.env: DB_* values, a unique JWT_SECRET (at least 32 characters),
+# APP_URL and CORS_ORIGINS. Leave SMTP_HOST unset for local QA.
 npm --prefix api run migrate
-# Optional, local development sample records only:
+# Optional for browsing; required for the seeded-paper browser checks:
 npm --prefix api run seed
-npm run dev        # API on http://localhost:3000
-npm run dev:web    # web on http://localhost:3001
+npm --prefix web run build
 ```
 
-The web app reads the API address from `NEXT_PUBLIC_API_BASE_URL`
-(default `http://localhost:3000`).
+Start `npm --prefix api start` in one terminal and `npm --prefix web start` in another. Open `http://localhost:3001`; the API listens at `http://localhost:3000`. For development, use separate terminals with `npm run dev` and `npm run dev:web` instead.
 
-For a populated demo network run `npm run seed:demo-network` in `api/`;
-the accounts are listed in [api/DEMO_ACCOUNTS.md](api/DEMO_ACCOUNTS.md).
+The web reads `NEXT_PUBLIC_API_BASE_URL` (default `http://localhost:3000`). Change it in private `web/.env.local` before building when using another API origin. Use no secrets in browser environment variables.
+
+Migrate with the npm runner instead of replaying `database/schema.sql` over existing data. Seeds are fictional development records; register your own account to browse. For the optional additional demo network, see [api/DEMO_ACCOUNTS.md](api/DEMO_ACCOUNTS.md). Keep private `.env` files out of source delivery.
+
+Compose configuration was parsed, but new container images and the all-container startup were not exercised. It is not the verified setup path. A public Oracle-backed app deployment and SMTP inbox delivery remain follow-through; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Tests
 
-```bash
+Use the same isolated `RH_QA_*` Oracle schema in `api/.env` and the running API. Leave SMTP unset and seed the fresh schema before browser checks. Google Chrome is the configured browser. Start the production web build first so Playwright reuses it rather than starting a development server.
+
+```sh
 npm test                         # API unit tests, no database required
 npm --prefix api run test:integration  # Requires isolated RH_QA_* Oracle schema
 npm run test:web:e2e              # API + production web running, isolated RH_QA_* schema
+npm --prefix api audit --omit=dev
+npm --prefix web audit --omit=dev
 ```
 
 ## API

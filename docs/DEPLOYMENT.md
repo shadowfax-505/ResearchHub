@@ -1,110 +1,53 @@
-# ResearchHub Deployment Guide
+# ResearchHub deployment handoff
 
-## Overview
-This document explains how to deploy ResearchHub with Oracle Database locally, through Docker, or in a production-ready environment.
+The redesigned app was verified locally with a production Next.js build and a real Oracle Free 23 database. A hosted Oracle-backed app has not been deployed. The public portfolio is a static case study, not an API host or live ResearchHub service. Exact checks are in [VERIFICATION_2026-10-11.md](VERIFICATION_2026-10-11.md).
 
-## Prerequisites
-- Node.js 16+ and npm
-- Oracle Database 21c XE, Oracle Database Free 23ai, or a managed Oracle-compatible service
-- Docker and Docker Compose for containerized deployment
-- Git
+For the directly verified local setup, follow [SETUP_GUIDE.md](SETUP_GUIDE.md). It covers the dedicated schema, private configuration, migration runner and both servers.
 
-## Environment
-Copy the example environment file and set deployment values.
+## Prepare a hosted environment
 
-```bash
-cd api
-cp .env.example .env
+Use Node.js 22.12 or later. Provide a persistent, reachable Oracle database and a dedicated application user with the schema privileges described in the setup guide. Keep production credentials outside Git and source archives.
+
+Configure the API using `api/.env.example` as the variable reference:
+
+- `DB_USER`, `DB_PASSWORD`, `DB_CONNECT_STRING` and `DB_SCHEMA` for the intended application schema.
+- A unique, stable `JWT_SECRET` with at least 32 characters; production startup rejects a missing or undersized secret.
+- `NODE_ENV=production`, `API_PORT`, and the public API `API_URL`.
+- The web origin in `APP_URL` and the allowed browser origins in `CORS_ORIGINS`.
+- SMTP credentials and sender configuration if inbox delivery is required. Without SMTP, email requests queue; delivery has not been tested.
+
+Set `NEXT_PUBLIC_API_BASE_URL` to the public API origin in the web build environment. It is embedded in browser code, so use no secret values there. Configure HTTPS, durable storage for `api/storage/uploads`, database/file backups, and process supervision appropriate to the host.
+
+## Build and start
+
+Run from the repository root, after the private environment and database user are configured:
+
+```sh
+npm run install:all
+npm --prefix api run migrate
+npm --prefix web run build
 ```
 
-Required values:
-- `DB_CONNECT_STRING`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_SCHEMA`
-- `JWT_SECRET`
-- `NODE_ENV=production`
-- `API_PORT`
+Do not seed fictional development accounts in a public production environment. Do not replay the raw base schema over existing data. The migration runner preserves existing tables, tracks applied files and checks stored-program compilation; take the intended database backup before a production migration.
 
-## Local Deployment
-Install dependencies:
+Start the services under the host's process supervisor, equivalent to these two separate foreground commands:
 
-```bash
-cd api
-npm install
+```sh
+npm --prefix api start
 ```
 
-Apply schema and seed data:
-
-```bash
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/schema.sql
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/seeds/seed-data.sql
+```sh
+npm --prefix web start
 ```
 
-Start the server:
+The API defaults to port 3000; the web start script uses port 3001. Route the public HTTPS origins to those services and ensure the database remains reachable from the API.
 
-```bash
-npm start
-```
+## Acceptance after hosting
 
-Verify:
+Check `/health`, registration/sign-in, publication reads, a private draft, a real PDF upload/download, save/reload, project persistence and privacy across two separate accounts. Verify SMTP inbox delivery separately. Run write-based automated suites only in a dedicated `RH_QA_*` environment with outbound test email disabled, following the setup guide.
 
-```bash
-curl http://localhost:3000/health
-curl http://localhost:3000/api/v1
-```
+The local record includes 65 live Oracle integration tests, 27 API unit tests, 8 browser journeys and production dependency audits with zero known vulnerabilities at the time checked. Those results do not establish hosted behavior, production capacity or literal 100% correctness.
 
-## Docker Deployment
-From `ResearchHub/project`:
+## Docker status
 
-```bash
-docker-compose up --build
-```
-
-The API is exposed on port `3000`, and Oracle is exposed on port `1521`.
-
-Stop containers:
-
-```bash
-docker-compose down
-```
-
-## Production Deployment Checklist
-- [ ] Set `NODE_ENV=production`
-- [ ] Use a strong `JWT_SECRET`
-- [ ] Use secure Oracle credentials
-- [ ] Use `npm ci` for clean installs
-- [ ] Configure a process manager such as PM2 or systemd
-- [ ] Enable HTTPS/TLS at the reverse proxy layer
-- [ ] Keep `.env` out of version control
-- [ ] Monitor logs and set up alerts
-- [ ] Schedule database exports or RMAN backups
-
-## Recommended Production Architecture
-1. Oracle database server separate from the API server
-2. Reverse proxy such as NGINX or Traefik
-3. TLS certificate management
-4. Centralized logging
-5. Regular database backups
-
-## Backup and Restore
-Use Oracle Data Pump in production environments:
-
-```bash
-expdp researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 schemas=RESEARCHHUB_USER directory=DATA_PUMP_DIR dumpfile=researchhub.dmp logfile=researchhub_export.log
-impdp researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 schemas=RESEARCHHUB_USER directory=DATA_PUMP_DIR dumpfile=researchhub.dmp logfile=researchhub_import.log
-```
-
-## Troubleshooting
-- `ORA-01017`: verify database credentials.
-- `ORA-12154`: verify the connection string and listener name.
-- `NJS-511`: verify the Oracle listener is reachable from the API host.
-- `ORA-00942`: run the schema as the same user configured in `DB_USER`.
-- `MODULE_NOT_FOUND`: run `npm install`.
-- `PORT in use`: free port `3000` or update `API_PORT`.
-
-## Launch Notes
-- Verify `/health` returns a successful response.
-- Confirm `GET /api/v1` returns endpoint metadata.
-- Confirm authentication, search, save-paper, and paper detail flows work after deployment.
-- Keep `docker-compose.yml` updated for container lifecycle management.
+`docker-compose.yml` uses the separate project name `researchhub-development`, loopback ports, a health-checked Oracle service, and distinct database/upload volumes. Its configuration was parsed, but new images and a full container startup were not exercised. Treat it as an unverified development option rather than a verified production deployment path. In particular, pass private environment values explicitly; `.env` files are excluded from Docker build contexts. Existing unrelated database volumes were preserved.
