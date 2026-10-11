@@ -4,13 +4,14 @@ import React, { useState, useRef, useEffect } from 'react';
 
 interface HeaderDropdownProps {
   trigger: React.ReactNode;
+  label: string;
   headerContent?: React.ReactNode;
   children: React.ReactNode;
   footerContent?: React.ReactNode;
   width?: string;
 }
 
-export function HeaderDropdown({ trigger, headerContent, children, footerContent, width = 'w-80' }: HeaderDropdownProps) {
+export function HeaderDropdown({ trigger, label, headerContent, children, footerContent, width = 'w-80' }: HeaderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -30,10 +31,13 @@ export function HeaderDropdown({ trigger, headerContent, children, footerContent
   }, [isOpen]);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={dropdownRef} onKeyDown={event => { if (event.key === 'Escape') { setIsOpen(false); dropdownRef.current?.querySelector('button')?.focus(); } }}>
       <button
+        aria-label={label}
+        aria-expanded={isOpen}
+        onKeyDown={event => { if (event.key === 'Escape') setIsOpen(false); }}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center p-2 rounded-full hover:bg-canvas transition-colors focus:outline-none"
+        className="flex items-center justify-center p-2 rounded-full hover:bg-canvas transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         {trigger}
       </button>

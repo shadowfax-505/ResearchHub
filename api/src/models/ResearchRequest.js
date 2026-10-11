@@ -19,16 +19,17 @@ class ResearchRequest {
     const [result] = await pool.query(
       `INSERT INTO RESEARCH_REQUESTS (user_id, recipient_user_id, paper_id, request_type, title, recipient_name, message, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', SYSTIMESTAMP, SYSTIMESTAMP)`,
-      [userId, data.recipient_user_id || null, data.paper_id || null, data.request_type || 'other', data.title, data.recipient_name, data.message]
+      [userId, data.recipient_user_id || null, data.paper_id || null, data.request_type || 'other', data.title, data.recipient_name, data.message],
+      { returnColumn: 'request_id' }
     );
-    return result.affectedRows;
+    return result.insertId;
   }
 
   static async updateStatus(requestId, actorId, status, reason) {
     const [result] = await pool.query(
       `UPDATE RESEARCH_REQUESTS SET status = ?, decision_by_user_id = ?, decision_reason = ?, updated_at = SYSTIMESTAMP
-       WHERE request_id = ? AND status = 'pending' AND (recipient_user_id = ? OR user_id = ?)`,
-      [status, actorId, reason || null, requestId, actorId, actorId]
+       WHERE request_id = ? AND status = 'pending' AND ((recipient_user_id = ? AND ? IN ('approved', 'declined')) OR (user_id = ? AND ? = 'cancelled'))`,
+      [status, actorId, reason || null, requestId, actorId, status, actorId, status]
     );
     return result.affectedRows;
   }

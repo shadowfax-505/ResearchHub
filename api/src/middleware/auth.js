@@ -2,12 +2,14 @@
 
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-in-production';
+const { jwtSecret: JWT_SECRET } = require('../config');
+const User = require('../models/User');
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 
 function readCookie(req, name) {
   const header = req.headers.cookie || '';
   const pair = header.split(';').map(value => value.trim()).find(value => value.startsWith(`${name}=`));
-  return pair ? decodeURIComponent(pair.slice(name.length + 1)) : null;
+  try { return pair ? decodeURIComponent(pair.slice(name.length + 1)) : null; } catch { return null; }
 }
 
 function getToken(req) {
@@ -20,7 +22,7 @@ function setSessionCookie(res, token) {
 }
 
 class AuthMiddleware {
-  static verifyToken(req, res, next) {
+  static async verifyToken(req, res, next) {
     const token = getToken(req);
 
     if (!token) {
@@ -32,17 +34,23 @@ class AuthMiddleware {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = decoded;
+      const user = await User.findById(decoded.user_id);
+      if (!user || Number(decoded.session_version || 0) !== Number(user.session_version || 0) || user.is_active === 0 || ['banned', 'closed', 'suspended'].includes(user.account_status)) {
+        AuthMiddleware.clearSessionCookie(res);
+        return res.status(401).json({ error: 'This session is no longer active. Please sign in again.' });
+      }
+      req.user = { ...decoded, ...user };
       next();
     } catch (error) {
-      return res.status(403).json({
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      return res.status(401).json({
         error: 'Invalid token',
         message: error.message
       });
     }
   }
 
-  static optionalToken(req, res, next) {
+  static async optionalToken(req, res, next) {
     const token = getToken(req);
     if (!token) {
       req.user = undefined;
@@ -50,8 +58,10 @@ class AuthMiddleware {
     }
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = decoded;
+      const user = await User.findById(decoded.user_id);
+      req.user = user && Number(decoded.session_version || 0) === Number(user.session_version || 0) && user.is_active !== 0 && !['banned', 'closed', 'suspended'].includes(user.account_status) ? { ...decoded, ...user } : undefined;
     } catch (error) {
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       req.user = undefined;
     }
     next();
@@ -81,7 +91,8 @@ class AuthMiddleware {
         username: user.username,
         email: user.email,
         role: user.role,
-        is_verified: user.is_verified
+        is_verified: user.is_verified,
+        session_version: Number(user.session_version || 0)
       },
       JWT_SECRET,
       { expiresIn: '24h' }

@@ -16,7 +16,7 @@ router.post('/:paperId/request-fulltext', AuthMiddleware.verifyToken, PaperContr
 router.post('/:paperId/recommend', AuthMiddleware.verifyToken, PaperController.recommend);
 router.delete('/:paperId/recommend', AuthMiddleware.verifyToken, PaperController.unrecommend);
 router.get('/author/:authorId', PaperController.getByAuthor);
-router.get('/:paperId', PaperController.getById);
+router.get('/:paperId', AuthMiddleware.optionalToken, PaperController.getById);
 
 router.post('/', AuthMiddleware.verifyToken, PaperController.create);
 

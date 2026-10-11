@@ -1,5 +1,5 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Paper = require('../models/Paper');
-const { demoPapers, isDatabaseUnavailable } = require('../utils/demoData');
 
 function formatBib(paper) {
   const key = `researchhub${paper.paper_id || 'paper'}`;
@@ -29,7 +29,7 @@ class CitationController {
 
     try {
       const paper = await Paper.findById(paperId);
-      if (!paper) return res.status(404).json({ error: 'Paper not found' });
+      if (!paper || !Paper.canRead(paper, req.user)) return res.status(404).json({ error: 'Paper not found' });
       
       let citation = '';
       if (format === 'bib') citation = formatBib(paper);
@@ -39,17 +39,7 @@ class CitationController {
 
       res.status(200).json({ success: true, data: { filename: `researchhub-citation.${format}`, format, citation, content: citation } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const paper = demoPapers.find(item => item.paper_id === paperId) || demoPapers[0];
-        
-        let citation = '';
-        if (format === 'bib') citation = formatBib(paper);
-        else if (format === 'ris') citation = formatRis(paper);
-        else if (format === 'enw') citation = formatEndNote(paper);
-        else citation = formatText(paper);
-
-        return res.status(200).json({ success: true, source: 'demo', data: { filename: `researchhub-citation.${format}`, format, citation, content: citation } });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }

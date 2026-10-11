@@ -1,3 +1,4 @@
+const { HttpError } = require('../utils/errors');
 const { pool } = require('../config/database');
 
 class Project {
@@ -44,8 +45,8 @@ class Project {
   static async addUpdate(projectId, userId, body) {
     // Verify user is owner/member first (or just insert directly as project lead)
     const [rows] = await pool.query('SELECT user_id FROM PROJECTS WHERE project_id = ?', [projectId]);
-    if (!rows || rows.length === 0) throw new Error('Project not found');
-    if (rows[0].user_id !== userId) throw new Error('Unauthorized to post updates on this project');
+    if (!rows || rows.length === 0) throw new HttpError(404, 'Project not found');
+    if (rows[0].user_id !== userId) throw new HttpError(403, 'Only the project owner can post updates');
 
     const [result] = await pool.query(
       'INSERT INTO PROJECT_UPDATES (project_id, user_id, body, created_at) VALUES (?, ?, ?, SYSTIMESTAMP)',

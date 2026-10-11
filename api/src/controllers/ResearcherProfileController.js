@@ -1,6 +1,6 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Joi = require('joi');
 const ResearcherProfile = require('../models/ResearcherProfile');
-const { demoPapers, demoQuestions, demoUsers, isDatabaseUnavailable } = require('../utils/demoData');
 const VerificationRequest = require('../models/VerificationRequest');
 const User = require('../models/User');
 
@@ -20,43 +20,18 @@ class ResearcherProfileController {
       if (!profile) return res.status(404).json({ success: false, error: 'Researcher profile not found' });
       return res.status(200).json({ success: true, data: profile });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const user = demoUsers.find(item => item.username === req.params.slug) || demoUsers[0];
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          data: {
-            ...user,
-            slug: user.username,
-            headline: 'Researcher in computational science and open scholarship',
-            followers: 18,
-            following: 12,
-            total_reads: 1240,
-            rg_score: 18,
-            papers: demoPapers,
-            questions: demoQuestions.filter(question => question.user_id === user.user_id)
-          }
-        });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       return res.status(500).json({ success: false, error: error.message });
     }
   }
 
   static async getInstitutionalRankings(req, res) {
-    const demoRankings = [
-      { institution_name: 'Stanford University', country: 'United States', researchers_count: 42, total_publications: 184, total_citations: 3920, total_reads: 48100 },
-      { institution_name: 'Massachusetts Institute of Technology (MIT)', country: 'United States', researchers_count: 38, total_publications: 165, total_citations: 4120, total_reads: 51200 },
-      { institution_name: 'Harvard University', country: 'United States', researchers_count: 35, total_publications: 150, total_citations: 3450, total_reads: 41000 },
-      { institution_name: 'University of Oxford', country: 'United Kingdom', researchers_count: 29, total_publications: 128, total_citations: 2890, total_reads: 36400 },
-      { institution_name: 'ETH Zürich', country: 'Switzerland', researchers_count: 24, total_publications: 110, total_citations: 2410, total_reads: 29800 },
-      { institution_name: 'University of Cambridge', country: 'United Kingdom', researchers_count: 26, total_publications: 118, total_citations: 2650, total_reads: 31200 }
-    ];
-
     try {
       const rankings = await ResearcherProfile.getInstitutionalRankings();
-      res.status(200).json({ success: true, data: rankings.length ? rankings : demoRankings, count: rankings.length || demoRankings.length });
+      res.status(200).json({ success: true, data: rankings, count: rankings.length });
     } catch (error) {
-      res.status(200).json({ success: true, source: 'demo', data: demoRankings, count: demoRankings.length });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 
@@ -68,21 +43,7 @@ class ResearcherProfileController {
       const researchers = await ResearcherProfile.getAllResearchers(limit, offset);
       return res.status(200).json({ success: true, data: researchers });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          data: demoUsers.map(user => ({
-            ...user,
-            slug: user.username,
-            headline: 'Demo Researcher',
-            followers: 5,
-            following: 5,
-            total_reads: 100,
-            rg_score: 5
-          })).slice(offset, offset + limit)
-        });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       return res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -103,10 +64,9 @@ class ResearcherProfileController {
 
   static async getMine(req, res) {
     try {
-      const profile = await ResearcherProfile.findPublicBySlug(req.user.username);
-      if (profile) return res.json({ success: true, data: profile });
-      const user = await User.findById(req.user.user_id);
-      return res.json({ success: true, data: user });
+      const profile = await ResearcherProfile.findMine(req.user.user_id);
+      if (!profile) return res.status(404).json({ error: 'Account not found' });
+      return res.json({ success: true, data: profile });
     } catch (error) { return res.status(500).json({ success: false, error: error.message }); }
   }
 
@@ -137,9 +97,7 @@ class ResearcherProfileController {
       await ResearcherProfile.followUser(req.user.user_id, followedId);
       return res.status(201).json({ success: true, message: 'Now following researcher' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(201).json({ success: true, source: 'demo', message: 'Now following researcher (demo)' });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       if (error.message.includes('Already following')) {
         return res.status(409).json({ success: false, error: 'Already following this researcher' });
       }
@@ -157,9 +115,7 @@ class ResearcherProfileController {
       await ResearcherProfile.unfollowUser(req.user.user_id, followedId);
       return res.status(200).json({ success: true, message: 'Unfollowed researcher' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', message: 'Unfollowed researcher (demo)' });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       if (error.message.includes('Not following')) {
         return res.status(404).json({ success: false, error: 'Not following this researcher' });
       }
@@ -177,9 +133,7 @@ class ResearcherProfileController {
       const following = await ResearcherProfile.isFollowing(req.user.user_id, followedId);
       return res.status(200).json({ success: true, data: { is_following: following } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', data: { is_following: false } });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       return res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -311,9 +265,7 @@ class ResearcherProfileController {
       const data = await ResearcherProfile.getFollowing(userId);
       return res.status(200).json({ success: true, data });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', data: [] });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       return res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -327,9 +279,7 @@ class ResearcherProfileController {
       const data = await ResearcherProfile.getFollowers(userId);
       return res.status(200).json({ success: true, data });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', data: [] });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       return res.status(500).json({ success: false, error: error.message });
     }
   }

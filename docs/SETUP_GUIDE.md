@@ -4,16 +4,16 @@
 This guide sets up ResearchHub with Oracle Database and the Express API.
 
 ## Prerequisites
-- Node.js 16+ and npm
+- Node.js 22.12+ and npm
 - Oracle Database 21c XE, Oracle Database Free 23ai, or the Docker service from this project
 - SQL*Plus or SQLcl for manual database setup
 - Git
 
 ## Fastest Setup With Docker
-From `ResearchHub/project`:
+From the repository root:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 The API runs on `http://localhost:3000` and Oracle listens on `localhost:1521`.
@@ -28,7 +28,7 @@ GRANT CREATE VIEW, CREATE SEQUENCE, CREATE TRIGGER, CREATE PROCEDURE TO research
 ALTER USER researchhub_user QUOTA UNLIMITED ON USERS;
 ```
 
-Apply the schema and seed data:
+Prefer `npm --prefix api run migrate` after configuring `api/.env`; it records applied migrations and does not reset existing tables. The following initial SQL is only for a fresh schema:
 
 ```bash
 sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/schema.sql

@@ -1,49 +1,51 @@
-version: '3.9'
+name: researchhub-development
 services:
+  db:
+    image: gvenzl/oracle-free:23-slim
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-development-root-password}
+      APP_USER: researchhub_user
+      APP_USER_PASSWORD: ${DB_PASSWORD:-development-app-password}
+    ports:
+      - '127.0.0.1:1521:1521'
+    volumes:
+      - db_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
   api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     environment:
-      - DB_USER=researchhub_user
-      - DB_PASSWORD=researchhub_secure_password
-      - DB_CONNECT_STRING=db:1521/FREEPDB1
-      - DB_SCHEMA=RESEARCHHUB_USER
-      - NODE_ENV=development
-      - API_PORT=3000
+      DB_USER: researchhub_user
+      DB_PASSWORD: ${DB_PASSWORD:-development-app-password}
+      DB_CONNECT_STRING: db:1521/FREEPDB1
+      NODE_ENV: development
+      API_PORT: 3000
+      APP_URL: http://localhost:3001
+      CORS_ORIGINS: http://localhost:3001
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    command: ["sh", "-c", "npm run migrate && npm start"]
     volumes:
-      - ./api:/app/api
-
+      - uploads:/app/api/storage/uploads
   web:
     build:
       context: .
       dockerfile: web/Dockerfile
     ports:
-      - '3001:3001'
+      - '127.0.0.1:3001:3001'
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
     depends_on:
       - api
-    volumes:
-      - ./web:/app
-      - /app/node_modules
-
-  db:
-    image: gvenzl/oracle-free:23-slim
-    environment:
-      ORACLE_PASSWORD: root_password
-      APP_USER: researchhub_user
-      APP_USER_PASSWORD: researchhub_secure_password
-    ports:
-      - '1521:1521'
-    volumes:
-      - db_data:/opt/oracle/oradata
-      - ./database/schema.sql:/container-entrypoint-initdb.d/01_schema.sql
-      - ./database/seeds/seed-data.sql:/container-entrypoint-initdb.d/02_seed.sql
-
 volumes:
   db_data:
+  uploads:

@@ -1,13 +1,16 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Joi = require('joi');
 const UserSetting = require('../models/UserSetting');
+const { pool } = require('../config/database');
+const ResearcherProfile = require('../models/ResearcherProfile');
 const ResearcherStats = require('../models/ResearcherStats');
-const { demoSettings, isDatabaseUnavailable } = require('../utils/demoData');
+const { defaultSettings } = require('../utils/defaultSettings');
 
 const settingSchema = Joi.object({
   theme: Joi.string().valid('light', 'dark', 'system').default('system'),
   density: Joi.string().valid('comfortable', 'compact').default('comfortable'),
   notifications: Joi.object().unknown(true).default({}),
-  privacy: Joi.object().unknown(true).default({}),
+  privacy: Joi.object({ profile_visibility: Joi.string().valid('public', 'followers', 'private') }).unknown(true).default({}),
   // Flat fields accepted from frontend — mapped to nested format before storage
   email_notifications: Joi.boolean(),
   paper_recommendations: Joi.boolean(),
@@ -15,7 +18,7 @@ const settingSchema = Joi.object({
 });
 
 function normalizeSettings(settings) {
-  if (!settings) return demoSettings;
+  if (!settings) return defaultSettings;
   const out = {
     ...settings,
     notifications: typeof settings.notifications === 'string' ? JSON.parse(settings.notifications || '{}') : settings.notifications,
@@ -55,22 +58,34 @@ class SettingController {
       const settings = await UserSetting.findByUser(req.user.user_id);
       res.status(200).json({ success: true, data: normalizeSettings(settings) });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: demoSettings });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
 
   static async update(req, res) {
     const mappedBody = mapFlatToNested(req.body);
-    const { error, value } = settingSchema.validate(mappedBody);
+    const { error, value } = settingSchema.validate(mappedBody, { noDefaults: true });
     if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
-      const settings = await UserSetting.upsert(req.user.user_id, value);
+      if (value.privacy?.profile_visibility) await ResearcherProfile.ensureProfile(req.user.user_id, req.user.username);
+      const settings = await pool.transaction(async tx => {
+        await tx.query('SELECT user_id FROM USERS WHERE user_id = ? FOR UPDATE', [req.user.user_id]);
+        const current = normalizeSettings(await UserSetting.findByUser(req.user.user_id, tx));
+        const merged = { ...current, ...value,
+          notifications: { ...current.notifications, ...value.notifications },
+          privacy: { ...current.privacy, ...value.privacy } };
+        if (value.privacy?.profile_visibility) {
+          const visibility = value.privacy.profile_visibility === 'followers' ? 'network' : value.privacy.profile_visibility;
+          await tx.query('UPDATE RESEARCHER_PROFILES SET visibility = ?, updated_at = SYSTIMESTAMP WHERE user_id = ?', [visibility, req.user.user_id]);
+        }
+        return UserSetting.upsert(req.user.user_id, merged, tx);
+      });
       await ResearcherStats.refreshForUser(req.user.user_id).catch(() => undefined);
       res.status(200).json({ success: true, data: normalizeSettings(settings) });
     } catch (err) {
-      if (isDatabaseUnavailable(err)) return res.status(200).json({ success: true, source: 'demo', data: normalizeSettings({ ...demoSettings, ...value, user_id: req.user.user_id }) });
+      if (isDatabaseUnavailable(err)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: err.message });
     }
   }
