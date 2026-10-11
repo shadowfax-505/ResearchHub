@@ -12,3 +12,7 @@ The reading-room frontend and Oracle workflow repair are implemented. This repos
 The companion portfolio will showcase this updated build. A public Oracle-backed app deployment, production load evaluation and SMTP inbox delivery remain follow-through. The static portfolio is not the backend host. No claim of literal 100% correctness is made.
 
 Local private configuration is gitignored. The isolated QA database is kept separately from existing user volumes. Do not reset existing databases; create a dedicated RH_QA_* schema to reproduce write tests.
+
+## Final source handoff
+
+Application commit `34dc07cf06f85aea4556d9c0c82de323521808bd`; documentation-only update `76f8772472acbfc2f81abde879339471f8bdc988`, pushed on `researchhub-polish-and-reliability`. Draft review: https://github.com/shadowfax-505/ResearchHub/pull/1. The delivered source archive is generated from the final review branch; the cross-project checkpoint records its exact SHA. Main is preserved. Task-owned servers and Oracle are stopped, QA data retained, Docker temporary resource fields restored. The companion `../RESEARCHHUB-LOCAL-RUN.md` contains the restart procedure.
