@@ -53,10 +53,11 @@ async function getPool() {
       user: config.db.user,
       password: config.db.password,
       connectString: config.db.connectString,
-      poolMin: 1,
+      poolMin: 0,
       poolMax: 10,
-      poolIncrement: 1
-    });
+      poolIncrement: 1,
+      queueTimeout: 5000
+    }).catch(error => { poolPromise = null; throw error; });
   }
   return poolPromise;
 }
@@ -116,14 +117,34 @@ async function executeProcedure(block, binds = {}) {
   }
 }
 
+async function transaction(work) {
+  const oraclePool = await getPool();
+  const connection = await oraclePool.getConnection();
+  const tx = { async query(sql, params = [], options = {}) {
+    const statement = convertPlaceholders(sql, params, options);
+    const result = await connection.execute(statement.sql, statement.binds, { autoCommit: false });
+    return normalizeResult(result, options);
+  }};
+  try {
+    const result = await work(tx);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally { await connection.close(); }
+}
+
 const pool = {
   query: execute,
   call: executeProcedure,
+  transaction,
   async end() {
-    if (poolPromise) {
-      const p = await poolPromise;
-      await p.close(0);
-      poolPromise = null;
+    const pending = poolPromise;
+    poolPromise = null;
+    if (pending) {
+      const p = await pending.catch(() => null);
+      if (p) await p.close(0);
     }
   }
 };

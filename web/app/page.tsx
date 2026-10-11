@@ -1,103 +1,23 @@
 'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import {useEffect} from 'react';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Search, Sparkles, GraduationCap, Building2, HeartPulse, UserCircle } from 'lucide-react';
+import {ArrowUpRight,ArrowDown,Search} from 'lucide-react';
+import {hasStoredSession} from '@/lib/session';
 
-export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = window.sessionStorage.getItem('researchhub_token');
-      if (token) {
-        router.replace('/feed');
-      }
-    }
-  }, [router]);
-
-  return (
-    <main className="min-h-screen bg-slate-50 text-slate-800 dark:bg-darkCanvas dark:text-darkInk">
-      {/* Navigation Header */}
-      <header className="border-b border-slate-200 bg-white dark:border-darkLine dark:bg-darkCard">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="text-2xl font-black tracking-tight text-primary">
-            ResearchHub
-          </Link>
-          <div className="flex items-center gap-6 text-sm font-bold">
-            <Link href="/search" className="text-slate-600 transition hover:text-primary dark:text-darkMuted">
-              Search
-            </Link>
-            <Link href="/login" className="text-slate-700 transition hover:text-primary dark:text-darkMuted">
-              Log in
-            </Link>
-            <Link href="/signup" className="rounded-lg bg-primary px-4 py-2 text-white transition hover:bg-primaryDark">
-              Join for free
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Search Section */}
-      <section className="mx-auto max-w-4xl px-6 py-16 text-center md:py-24">
-        <span className="inline-flex items-center gap-2 rounded-full bg-primarySoft px-4 py-1.5 text-xs font-bold text-primary dark:bg-primary/10">
-          <Sparkles size={14} /> Replicating ResearchGate Platform Design
-        </span>
-        <h1 className="mt-6 text-4xl font-extrabold tracking-tight md:text-6xl text-slate-900 dark:text-white leading-tight">
-          Discover scientific knowledge, connect with peers, and share your work.
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600 dark:text-darkMuted">
-          Access over 160 million publication pages, view real-time citation metrics, ask questions, and follow your colleagues.
-        </p>
-
-        {/* Global Search Bar */}
-        <form action="/search" className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-stitch dark:border-darkLine dark:bg-darkCard md:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
-            <input 
-              name="q" 
-              className="h-12 w-full bg-transparent pl-12 pr-4 text-base outline-none dark:text-white" 
-              placeholder="Search publications, researchers, journals, or topics" 
-            />
-          </div>
-          <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 font-bold text-white transition hover:bg-primaryDark">
-            Search
-          </button>
-        </form>
-      </section>
-
-      {/* Target Audiences Grid */}
-      <section className="mx-auto max-w-6xl px-6 pb-24">
-        <h2 className="text-center text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-darkMuted">
-          Join your professional scientific community
-        </h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            [GraduationCap, 'Academic or Student', 'Connect with university faculty, peers, and department libraries.'],
-            [Building2, 'Corporate Researcher', 'Discover patents, commercial research findings, and industrial tech.'],
-            [HeartPulse, 'Medical Professional', 'Follow clinical trials, medical breakthroughs, and scientific reviews.'],
-            [UserCircle, 'Not a Researcher', 'Search public papers, learn about topics, and follow discussions.']
-          ].map(([Icon, label, description]) => {
-            const CardIcon = Icon as typeof GraduationCap;
-            return (
-              <Link 
-                href="/signup" 
-                key={label as string}
-                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-primary hover:shadow-md dark:border-darkLine dark:bg-darkCard"
-              >
-                <div>
-                  <CardIcon className="text-primary transition group-hover:scale-110" size={28} />
-                  <h3 className="mt-5 text-lg font-bold text-slate-900 dark:text-white">{label as string}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-darkMuted">{description as string}</p>
-                </div>
-                <div className="mt-6 flex items-center gap-2 text-sm font-bold text-primary group-hover:underline">
-                  Sign up for free <ArrowRight size={14} />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-    </main>
-  );
+export default function Home(){
+ const router=useRouter();useEffect(()=>{if(hasStoredSession())router.replace('/feed');},[router]);
+ return <div className="rh-landing">
+  <a href="#landing-main" className="rh-skip">Skip to content</a>
+  <header className="rh-landing-header"><Link href="/" className="rh-brand"><span className="rh-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M6 7h7c5 0 8 3 8 7s-3 7-8 7H6V7Zm7 14 9 7M25 3v8M21 7h8" stroke="currentColor" strokeWidth="1.8"/></svg></span><span>Research<span className="rh-brand-light">Hub</span><small>THE READING ROOM</small></span></Link><nav aria-label="Public navigation"><Link href="/feed">Explore research</Link><Link href="/login">Log in</Link><Link href="/signup" className="rh-join">Join the room <ArrowUpRight size={14}/></Link></nav></header>
+  <main id="landing-main">
+   <section className="rh-landing-hero"><div className="rh-landing-copy"><p className="rh-micro"><span/> A PLACE FOR CURIOUS MINDS</p><h1>Good questions.<br/><em>Better company.</em></h1><p className="rh-landing-description">A reading room for the work that moves you.<br/>Discover research, gather ideas, and find the people<br className="hidden md:block"/> asking the next interesting question.</p><form action="/search" role="search" className="rh-landing-search"><Search size={18}/><input name="q" aria-label="Find research, people or ideas" placeholder="What are you curious about?"/><button type="submit" aria-label="Search research"><ArrowUpRight size={22}/></button></form><div className="rh-landing-tags"><span>START SOMEWHERE</span>{['Machine learning','Physics','Climate'].map(topic=><Link key={topic} href={`/search?q=${encodeURIComponent(topic)}`}>{topic} ↗</Link>)}</div></div>
+   <figure className="rh-book-study"><svg viewBox="0 0 600 650" fill="none" role="img" aria-label="An original illustration of open pages unfolding into a network of ideas"><g stroke="currentColor" strokeWidth=".6" opacity=".15"><circle cx="300" cy="317" r="220"/><circle cx="300" cy="317" r="175"/><path d="M300 65v510M55 317h490m-60-184L115 501m0-368 370 368"/></g><g className="rh-book-pages" stroke="currentColor" strokeWidth="1.1">{Array.from({length:22},(_,i)=>{const t=i/21;return <path key={i} pathLength="1" style={{animationDelay:`${i*.035}s`}} d={`M${(109+t*38).toFixed(1)} ${(216+t*70).toFixed(1)} C${(194+t*17).toFixed(1)} ${(170+t*80).toFixed(1)} ${(230+t*22).toFixed(1)} ${(330+t*45).toFixed(1)} 300 ${(435+t*7).toFixed(1)} C${(350+t*9).toFixed(1)} ${(345+t*12).toFixed(1)} ${(420-t*9).toFixed(1)} ${(154+t*133).toFixed(1)} ${(505-t*46).toFixed(1)} ${(201+t*74).toFixed(1)} L${(496-t*45).toFixed(1)} ${(395+t*31).toFixed(1)} C390 402 342 449 300 ${(460+t*.4).toFixed(1)} C253 401 200 409 ${(111+t*31).toFixed(1)} ${(398+t*25).toFixed(1)}Z`}/>;})}</g><g stroke="#ba6044" strokeWidth="1"><path d="M217 211 273 131l89 24 39 102M273 131l32-49m57 73 76-42M217 211l-53-41"/><g fill="var(--rh-canvas)"><circle cx="273" cy="131" r="5"/><circle cx="362" cy="155" r="5"/><circle cx="401" cy="257" r="3"/><circle cx="305" cy="82" r="3"/><circle cx="438" cy="113" r="3"/><circle cx="164" cy="170" r="3"/></g></g><g fill="currentColor" fontFamily="monospace" fontSize="8" letterSpacing="2"><text x="77" y="546">ONE QUESTION. MANY POSSIBILITIES.</text><text x="445" y="536">FIG. 001</text></g></svg><figcaption>KNOWLEDGE GROWS IN THE SPACES BETWEEN US.</figcaption></figure>
+   </section>
+   <div className="rh-landing-rule"><span>A LITTLE CURIOSITY GOES A LONG WAY.</span><a href="#a-place-for-ideas" aria-label="Explore the ResearchHub workflow"><ArrowDown size={17}/></a><span>SCROLL TO FIND YOUR PLACE</span></div>
+   <section id="a-place-for-ideas" className="rh-landing-workflow"><div className="rh-landing-section-heading"><p className="rh-micro">THE WORK BETWEEN THE BREAKTHROUGHS</p><h2>For the unfinished thought.<br/><em>And what comes after.</em></h2></div><div className="rh-workflow-steps">{[{n:'01',title:'Follow an idea.',description:'Search publications and discover the researchers behind them. See where one question takes you.',href:'/search',link:'Explore the literature'},{n:'02',title:'Keep what matters.',description:'Bring useful papers into your own collections. A personal library, one good reference at a time.',href:'/collections',link:'Build your reading library'},{n:'03',title:'Find your people.',description:'Ask a question, share your work, and connect with someone who sees a different piece of the puzzle.',href:'/network',link:'Meet the community'}].map(step=><article key={step.n}><span className="rh-step-number">{step.n}</span><h3>{step.title}</h3><p>{step.description}</p><Link href={step.href as '/search'|'/collections'|'/network'}>{step.link}<ArrowUpRight size={14}/></Link></article>)}</div></section>
+   <section className="rh-landing-invite"><p className="rh-micro">PULL UP A CHAIR</p><h2>Your next idea<br/>could start <em>here.</em></h2><Link href="/signup">Join the reading room <ArrowUpRight size={22}/></Link><span aria-hidden="true">✳</span></section>
+  </main>
+  <footer className="rh-landing-footer"><span>ResearchHub · A place for curious minds.</span><Link href="/feed">Take a look around ↗</Link></footer>
+ </div>;
 }

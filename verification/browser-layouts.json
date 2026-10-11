@@ -1,0 +1,149 @@
+{
+  "layouts": [
+    {
+      "width": 360,
+      "route": "/",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/feed",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/search?q=quantum",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/papers/1",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/projects",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/profile",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/collections",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 360,
+      "route": "/settings",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/feed",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/search?q=quantum",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/papers/1",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/projects",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/profile",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/collections",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 768,
+      "route": "/settings",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/feed",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/search?q=quantum",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/papers/1",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/projects",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/profile",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/collections",
+      "overflow": 0,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "route": "/settings",
+      "overflow": 0,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

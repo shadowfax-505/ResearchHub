@@ -9,7 +9,7 @@ class SavedPaper {
       FROM SAVED_PAPERS sp
       JOIN RESEARCH_PAPERS p ON sp.paper_id = p.paper_id
       LEFT JOIN JOURNALS j ON p.journal_id = j.journal_id
-      WHERE sp.user_id = ?
+      WHERE sp.user_id = ? AND ((NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public') OR p.owner_user_id = sp.user_id)
       ORDER BY sp.saved_at DESC
     `, [userId]);
     return rows;
@@ -23,18 +23,25 @@ class SavedPaper {
       FROM SAVED_PAPERS sp
       JOIN RESEARCH_PAPERS p ON sp.paper_id = p.paper_id
       LEFT JOIN JOURNALS j ON p.journal_id = j.journal_id
-      WHERE sp.user_id = ? AND sp.collection_name = ?
+      WHERE sp.user_id = ? AND ((NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public') OR p.owner_user_id = sp.user_id) AND sp.collection_name = ?
       ORDER BY sp.saved_at DESC
     `, [userId, collectionName]);
     return rows;
   }
 
   static async create(userId, paperId, collectionName) {
-    const [result] = await pool.query(
-      'INSERT INTO SAVED_PAPERS (user_id, paper_id, collection_name, saved_at) VALUES (?, ?, ?, SYSTIMESTAMP)',
-      [userId, paperId, collectionName]
-    );
-    return result;
+    return pool.transaction(async tx => {
+      await tx.query(`MERGE INTO COLLECTIONS c USING (SELECT ? user_id, ? name FROM dual) s
+        ON (c.user_id = s.user_id AND c.name = s.name)
+        WHEN NOT MATCHED THEN INSERT (user_id, name, created_at, updated_at) VALUES (s.user_id, s.name, SYSTIMESTAMP, SYSTIMESTAMP)`,
+        [userId, collectionName]);
+      const [result] = await tx.query(`MERGE INTO SAVED_PAPERS p USING (SELECT ? user_id, ? paper_id, ? collection_name FROM dual) s
+        ON (p.user_id = s.user_id AND p.paper_id = s.paper_id)
+        WHEN MATCHED THEN UPDATE SET collection_name = s.collection_name
+        WHEN NOT MATCHED THEN INSERT (user_id, paper_id, collection_name, saved_at) VALUES (s.user_id, s.paper_id, s.collection_name, SYSTIMESTAMP)`,
+        [userId, paperId, collectionName]);
+      return result;
+    });
   }
 
   static async delete(userId, paperId) {

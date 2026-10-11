@@ -6,28 +6,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: '#0075d9',
-        primaryDark: '#005bba',
-        primarySoft: '#f0f7ff',
-        canvas: '#f5f5f5',
-        paper: '#ffffff',
-        ink: '#111827',
-        muted: '#666666',
-        line: '#e5e7eb',
+        primary: '#365b45',
+        primaryDark: '#233f30',
+        primarySoft: '#e9ece1',
+        canvas: '#f5f3ed',
+        paper: '#fffefa',
+        ink: '#20342f',
+        muted: '#68716b',
+        line: '#dcded3',
         success: '#16a34a',
         warning: '#ea580c',
         violet: '#9333ea',
         teal: '#0d9488',
-        darkCanvas: '#0b1326',
-        darkPanel: '#131b2e',
-        darkCard: '#171f33',
-        darkLine: '#2d3449',
-        darkInk: '#dae2fd',
-        darkMuted: '#c2c6d6'
+        darkCanvas: '#16211e',
+        darkPanel: '#1a2822',
+        darkCard: '#1d2b26',
+        darkLine: '#35453b',
+        darkInk: '#e6e9dc',
+        darkMuted: '#afb8ab'
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        label: ['Public Sans', 'Inter', 'system-ui', 'sans-serif']
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        label: ['Manrope', 'system-ui', 'sans-serif']
       },
       borderRadius: {
         card: '0.75rem',

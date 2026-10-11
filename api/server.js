@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./src/config/index');
 const { testConnection } = require('./src/config/database');
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('./src/utils/errors');
 
 const app = express();
 
@@ -55,7 +56,7 @@ app.use(
     }
   })
 );
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: config.allowedOrigins, credentials: true }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -91,7 +92,7 @@ app.get('/health', async (req, res) => {
   } catch (err) {
     const message = err.message || 'unknown';
     console.warn('Health check degraded:', message);
-    res.status(200).json({
+    res.status(503).json({
       ...health,
       status: 'DEGRADED',
       services: {
@@ -101,12 +102,14 @@ app.get('/health', async (req, res) => {
       warnings: [
         {
           service: 'database',
-          message
+          message: 'Database connection unavailable'
         }
       ]
     });
   }
 });
+
+app.get('/live', (_req, res) => res.json({ status: 'OK', service: 'ResearchHub API' }));
 
 app.get('/api/v1', (req, res) => {
   res.status(200).json({
@@ -171,9 +174,11 @@ app.use((req, res) => {
 
 app.use((err, req, res, _next) => {
   console.error(err.stack || err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error',
-    status: err.status || 500
+  if (isDatabaseUnavailable(err)) return sendDatabaseUnavailable(res);
+  const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : err.status || (/Only .*accepted/.test(err.message) ? 400 : 500);
+  res.status(status).json({
+    error: config.nodeEnv === 'production' && status >= 500 ? 'Unable to complete this request' : err.message || 'Internal Server Error',
+    status
   });
 });
 

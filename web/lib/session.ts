@@ -1,4 +1,5 @@
 type JwtPayload = {
+  exp?: number;
   role?: string;
   user_id?: number;
   username?: string;
@@ -39,12 +40,16 @@ export function getStoredSessionIsVerified() {
 
 export function hasStoredSession() {
   if (typeof window === 'undefined') return false;
-  return Boolean(window.sessionStorage.getItem('researchhub_token'));
+  const token = window.sessionStorage.getItem('researchhub_token');
+  if (!token) return false;
+  const payload = decodeTokenPayload(token);
+  if (!payload?.exp || payload.exp * 1000 <= Date.now()) { clearSession(); return false; }
+  return true;
 }
 
 export function getStoredSessionToken() {
   if (typeof window === 'undefined') return null;
-  return window.sessionStorage.getItem('researchhub_token');
+  return hasStoredSession() ? window.sessionStorage.getItem('researchhub_token') : null;
 }
 
 export function storeSession(token?: string | null, role?: string | null) {

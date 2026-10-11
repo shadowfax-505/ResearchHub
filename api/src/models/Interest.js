@@ -12,13 +12,15 @@ class Interest {
   }
 
   static async replace(userId, interests) {
-    await pool.query('DELETE FROM USER_INTERESTS WHERE user_id = ?', [userId]);
-    for (const interest of interests) {
-      await pool.query(`
+    await pool.transaction(async tx => {
+    await tx.query('DELETE FROM USER_INTERESTS WHERE user_id = ?', [userId]);
+    for (const interest of [...new Map(interests.map(item => [`${item.interest_type}:${item.interest_id}`, item])).values()]) {
+      await tx.query(`
         INSERT INTO USER_INTERESTS (user_id, interest_type, interest_id, source, weight, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, SYSTIMESTAMP, SYSTIMESTAMP)
-      `, [userId, interest.interest_type, interest.interest_id, interest.source || 'explicit', interest.weight || 1]);
+      `, [userId, interest.interest_type, interest.interest_id, interest.source || 'explicit', interest.weight ?? 1]);
     }
+    });
     return this.list(userId);
   }
 

@@ -13,8 +13,8 @@
     "lint:web": "cd web && npm run lint",
     "test": "cd api && npm test",
     "test:web:e2e": "cd web && npm run test:e2e",
-    "install:all": "npm install && cd api && npm install && cd ../web && npm install",
-    "vercel-build": "cd api && npm install && cd ../web && npm install && npm run build"
+    "install:all": "npm --prefix api ci && npm --prefix web ci",
+    "vercel-build": "npm --prefix api ci && npm --prefix web ci && npm --prefix web run build"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -35,7 +35,7 @@
     "supertest": "^6.3.3"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=22.12.0",
     "npm": ">=7.0.0"
   }
 }

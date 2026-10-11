@@ -1,6 +1,6 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Joi = require('joi');
 const Report = require('../models/Report');
-const { isDatabaseUnavailable } = require('../utils/demoData');
 
 const reportSchema = Joi.object({
   target_type: Joi.string().valid('user', 'paper', 'review', 'question', 'answer').required(),
@@ -26,7 +26,7 @@ class ReportController {
       });
       res.status(201).json({ success: true, data, message: 'Report submitted for review' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(503).json({ success: false, error: 'Reports require the Oracle database to be connected' });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -36,7 +36,7 @@ class ReportController {
       const data = await Report.getMine(req.user.user_id);
       res.status(200).json({ success: true, data });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: [] });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }

@@ -13,7 +13,8 @@
     "seed": "node scripts/seed.js",
     "seed:demo-network": "node scripts/seed-demo-network.js",
     "backup": "bash ../database/backup.sh",
-    "setup": "npm install && npm run migrate && npm run seed"
+    "setup": "npm install && npm run migrate && npm run seed",
+    "test:integration": "jest --config jest.integration.config.js --runInBand"
   },
   "keywords": [
     "research",
@@ -22,7 +23,7 @@
     "repository",
     "database"
   ],
-  "author": "Your Name",
+  "author": "Muttakin Rahman",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -34,7 +35,7 @@
     "jsonwebtoken": "^9.0.0",
     "morgan": "^1.10.0",
     "multer": "^2.2.0",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.1.0",
     "oracledb": "^6.10.0",
     "serverless-http": "^3.0.0"
   },
@@ -45,7 +46,7 @@
     "supertest": "^6.3.3"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=22.12.0",
     "npm": ">=7.0.0"
   }
 }

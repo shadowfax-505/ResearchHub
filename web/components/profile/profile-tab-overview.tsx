@@ -4,28 +4,16 @@ import { Camera, Building2, AlignLeft, GraduationCap, CheckCircle2, FlaskConical
 import { PublicResearcherProfile, Education, Experience, Skill, Language, Discipline, addEducation, deleteEducation, addExperience, deleteExperience, addSkill, deleteSkill, addLanguage, deleteLanguage, addDiscipline, deleteDiscipline, getAuthorPapers } from '@/lib/api';
 import { PaperCard } from '@/components/papers/paper-card';
 import { PortfolioExporterModal } from './portfolio-exporter-modal';
-import { OfficeHoursModal } from './office-hours-modal';
-import { CoauthorGraph } from './coauthor-graph';
-import { TaxonomyTagCloud } from './taxonomy-tag-cloud';
-import { ReviewerVelocityCard } from './reviewer-velocity-card';
-import { OrcidSyncWidget } from './orcid-sync-widget';
-import { LabMembersCard } from './lab-members-card';
 
-export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResearcherProfile, onUpdate?: () => void }) {
+export function ProfileTabOverview({ profile, onUpdate, onEdit, onVerify }: { profile: PublicResearcherProfile, onUpdate?: () => void, onEdit?: () => void, onVerify?: () => void }) {
   const [addingEdu, setAddingEdu] = useState(false);
   const [addingExp, setAddingExp] = useState(false);
   const [addingSkill, setAddingSkill] = useState(false);
   const [addingLang, setAddingLang] = useState(false);
   const [addingDisc, setAddingDisc] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [papers, setPapers] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!profile?.user_id) return;
-    getAuthorPapers(profile.user_id).then(res => {
-      if (res?.data) setPapers(res.data);
-    }).catch(console.error);
-  }, [profile?.user_id]);
+  const papers = profile.papers || [];
+  const [error, setError] = useState('');
 
   // Forms
   const [eduForm, setEduForm] = useState({ institution: '', degree: '', field_of_study: '', start_year: '', end_year: '' });
@@ -41,7 +29,7 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
       if (onUpdate) onUpdate();
       closeFn();
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : 'Your change could not be saved.');
     } finally {
       setLoading(false);
     }
@@ -52,7 +40,7 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
       await apiCall;
       if (onUpdate) onUpdate();
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : 'Your change could not be saved.');
     }
   };
 
@@ -70,20 +58,14 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
   });
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0">
+      {error ? <p role="alert" className="rh-form-error">{error}</p> : null}
       <div className={`grid gap-6 ${!profile.is_verified ? 'lg:grid-cols-[1fr_300px]' : 'w-full'}`}>
-        
+
         {/* Introduction */}
         <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-black text-ink dark:text-darkInk">Introduction</h2>
-            <button
-              type="button"
-              onClick={() => setShowOfficeHoursModal(true)}
-              className="px-3 py-1 bg-teal-600 text-white rounded font-bold text-xs hover:bg-teal-500 transition flex items-center gap-1.5"
-            >
-              <Calendar size={13} /> Book Office Hours
-            </button>
           </div>
           {profile.bio ? (
             <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-slate-300">{profile.bio}</p>
@@ -91,20 +73,20 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line p-8 text-center dark:border-darkLine">
                <AlignLeft size={32} className="mb-3 text-slate-300 dark:text-slate-600" />
                <p className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Add an introduction to tell other researchers more about you.</p>
-               <Button variant="secondary" size="sm">Add introduction</Button>
+               <Button variant="secondary" size="sm" onClick={onEdit}>Add introduction</Button>
             </div>
           )}
         </section>
-        
+
         {!profile.is_verified && (
           <div className="space-y-6">
             <section className="relative rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
-              <Button variant="ghost" className="absolute right-2 top-2 h-8 w-8 text-muted px-0"><Plus className="rotate-45" size={16} /></Button>
+
               <div className="flex flex-col items-center text-center">
                  <CheckCircle2 className="text-primary" size={48} />
                  <h3 className="mt-4 text-lg font-black leading-tight">{profile.full_name?.split(' ')[0] || profile.username}, you&apos;re not verified yet</h3>
                  <p className="mt-2 text-sm text-muted dark:text-darkMuted">Confirm your institutional email address to get your Verified Badge.</p>
-                 <Button variant="secondary" className="mt-4 w-full">Verify now</Button>
+                 <Button variant="secondary" className="mt-4 w-full" onClick={onVerify}>Verify now</Button>
               </div>
             </section>
           </div>
@@ -112,11 +94,11 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
       </div>
 
       <div className="mt-6 space-y-6">
-        <OrcidSyncWidget />
-        <TaxonomyTagCloud />
-        <ReviewerVelocityCard />
-        <LabMembersCard />
-        <CoauthorGraph authorName={profile?.full_name || profile?.username || 'Scholar'} />
+
+
+
+
+
         {/* Research & Publications */}
         {papers.length > 0 && (
           <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
@@ -124,7 +106,7 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
               <h2 className="text-xl font-black text-ink dark:text-darkInk flex items-center gap-2">
                 <FileText size={20} /> Research & Publications ({filteredPapers.length})
               </h2>
-              <div className="flex items-center gap-2 overflow-x-auto">
+              <div className="flex max-w-full flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowExportModal(true)}
@@ -176,7 +158,7 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line p-8 text-center dark:border-darkLine">
                <Building2 size={32} className="mb-3 text-slate-300 dark:text-slate-600" />
                <p className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Add your current affiliation to connect with colleagues.</p>
-               <Button variant="secondary" size="sm">Add affiliation</Button>
+               <Button variant="secondary" size="sm" onClick={onEdit}>Add affiliation</Button>
             </div>
           )}
         </section>
@@ -375,17 +357,14 @@ export function ProfileTabOverview({ profile, onUpdate }: { profile: PublicResea
 
       <PortfolioExporterModal
         authorName={profile.full_name || profile.username || 'Researcher'}
+        papers={papers}
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
       />
 
-      <OfficeHoursModal
-        scholarName={profile.full_name || profile.username || 'Researcher'}
-        isOpen={showOfficeHoursModal}
-        onClose={() => setShowOfficeHoursModal(false)}
-      />
 
-      <CoauthorGraph authorName={profile.full_name || profile.username || 'Researcher'} />
+
+
     </div>
   );
 }

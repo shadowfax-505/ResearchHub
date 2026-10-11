@@ -15,7 +15,7 @@ router.get('/audit-logs', AdminController.getAuditLogs);
 router.get('/email-queue', AdminController.getEmailQueue);
 router.post('/email-queue/:emailId/retry', AdminController.retryEmail);
 router.patch('/users/:userId/status', AdminController.setUserStatus);
-router.post('/users/:userId/roles', AdminController.assignRole);
+router.post('/users/:userId/roles', AuthMiddleware.verifyRole('admin'), AdminController.assignRole);
 router.get('/activity', AdminController.getPlatformActivity);
 router.get('/unverified-users', AdminController.getUnverifiedUsers);
 router.get('/author-claims', AdminController.getAuthorClaims);

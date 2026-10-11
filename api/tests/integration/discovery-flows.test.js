@@ -24,10 +24,13 @@ describe('discovery and paper persistence flows', () => {
 
   beforeAll(async () => {
     const health = await request(app).get('/health');
-    if (health.body.services.database !== 'connected') return;
+    expect(health.status).toBe(200);
+    expect(health.body.services.database).toBe('connected');
     const response = await request(app)
       .post('/api/v1/users/login')
       .send({ username: 'john_smith', password: 'password123' });
+    expect(response.status).toBe(200);
+    expect(response.body.source).not.toBe('demo');
     token = response.body.token;
   });
 
@@ -44,7 +47,7 @@ describe('discovery and paper persistence flows', () => {
   });
 
   it('persists authors and PDF file metadata for a paper', async () => {
-    if (!token) return;
+    expect(token).toBeTruthy();
     const paper = await request(app)
       .post('/api/v1/papers')
       .set('Authorization', `Bearer ${token}`)

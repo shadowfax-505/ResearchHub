@@ -14,7 +14,7 @@ class Paper {
         FROM PAPER_AUTHORS pa
         LEFT JOIN USER_AUTHOR_CLAIMS c ON pa.author_id = c.author_id AND c.status = 'verified'
         WHERE c.user_id = ? OR pa.author_id = ?
-      )
+      ) AND NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public'
       ORDER BY p.publication_date DESC
       OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
     `;
@@ -62,9 +62,8 @@ class Paper {
     const conditions = ["NVL(p.status, 'published') = 'published'", "NVL(p.visibility, 'public') = 'public'"];
     const params = [];
     if (normalizedQuery) {
-      const oracleSafeQuery = `{${normalizedQuery.replace(/[{}]/g, '')}}`;
-      conditions.push('(CONTAINS(p.title, ?, 1) > 0 OR CONTAINS(p.abstract, ?, 2) > 0 OR LOWER(p.title) LIKE LOWER(?) OR LOWER(p.abstract) LIKE LOWER(?))');
-      params.push(oracleSafeQuery, oracleSafeQuery, `%${normalizedQuery}%`, `%${normalizedQuery}%`);
+      conditions.push('(LOWER(p.title) LIKE LOWER(?) OR LOWER(p.abstract) LIKE LOWER(?))');
+      params.push(`%${normalizedQuery}%`, `%${normalizedQuery}%`);
     }
 
     const addInFilter = (column, values) => {
@@ -149,26 +148,13 @@ class Paper {
       OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
     `;
     const pageParams = [...params, Number(offset) || 0, Math.min(Number(limit) || 20, 100)];
-    try {
-      const [rows] = await pool.query(baseSql, pageParams);
-      return this.attachAuthors(rows);
-    } catch (error) {
-      if (!normalizedQuery || !/ORA-20000|CONTAINS|text/i.test(String(error.message))) throw error;
-      const likeConditions = conditions.filter(condition => !condition.includes('CONTAINS'));
-      const likeIndex = likeConditions.findIndex(condition => condition.includes('LOWER(p.title) LIKE'));
-      if (likeIndex >= 0) likeConditions.splice(likeIndex, 1);
-      likeConditions.unshift('(LOWER(p.title) LIKE LOWER(?) OR LOWER(p.abstract) LIKE LOWER(?))');
-      const fallbackParams = [`%${normalizedQuery}%`, `%${normalizedQuery}%`, ...params.slice(4), Number(offset) || 0, Math.min(Number(limit) || 20, 100)];
-      const [rows] = await pool.query(`
-        SELECT p.*, j.name AS journal_name
-        FROM RESEARCH_PAPERS p
-        LEFT JOIN JOURNALS j ON p.journal_id = j.journal_id
-        WHERE ${likeConditions.join(' AND ')}
-        ORDER BY ${orderBy}
-        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
-      `, fallbackParams);
-      return this.attachAuthors(rows);
-    }
+    const [rows] = await pool.query(baseSql, pageParams);
+    return this.attachAuthors(rows);
+  }
+
+  static canRead(paper, user) {
+    return (paper.status || 'published') === 'published' && (paper.visibility || 'public') === 'public'
+      || Boolean(user && (user.role === 'admin' || Number(paper.owner_user_id) === Number(user.user_id)));
   }
 
   static async findById(paperId) {
@@ -219,6 +205,7 @@ class Paper {
              j.name AS journal_name
       FROM RESEARCH_PAPERS p
       LEFT JOIN JOURNALS j ON p.journal_id = j.journal_id
+      WHERE NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public'
       ORDER BY p.citation_count DESC
       FETCH NEXT ? ROWS ONLY
     `, [limit]);
@@ -231,6 +218,7 @@ class Paper {
       FROM RESEARCH_PAPERS p
       LEFT JOIN USER_ACTIVITY ua ON p.paper_id = ua.paper_id 
         AND ua.activity_timestamp > SYSTIMESTAMP - NUMTODSINTERVAL(?, 'DAY')
+      WHERE NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public'
       GROUP BY p.paper_id, p.title, p.citation_count
       ORDER BY recent_activity DESC
       FETCH NEXT ? ROWS ONLY
@@ -248,7 +236,7 @@ class Paper {
         FROM PAPER_AUTHORS pa
         JOIN FOLLOWED_AUTHORS fa ON pa.author_id = fa.author_id
         WHERE fa.user_id = ?
-      )
+      ) AND NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public'
       ORDER BY p.publication_date DESC
       FETCH NEXT ? ROWS ONLY
     `, [userId, limit]);
@@ -260,7 +248,7 @@ class Paper {
     return rows;
   }
 
-  static async create(paperData) {
+  static async create(paperData, db = pool) {
     const {
       journal_id,
       title,
@@ -279,22 +267,22 @@ class Paper {
       visibility = 'public',
       status = 'published'
     } = paperData;
-    const [result] = await pool.query(
-      `INSERT INTO RESEARCH_PAPERS (journal_id, title, abstract, doi, publication_date, volume, issue, pages, pdf_url, cover_image_url, language, is_peer_reviewed, citation_count, view_count, download_count, status, visibility, publication_type, is_open_access, created_at, updated_at)
-       VALUES (?, ?, ?, ?, TO_DATE(?, 'YYYY-MM-DD'), ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, SYSTIMESTAMP, SYSTIMESTAMP)`,
-      [journal_id ?? null, title, abstract, doi, publication_date, volume, issue, pages, pdf_url, cover_image_url, language, is_peer_reviewed ? 1 : 0, status, visibility, publication_type, is_open_access ? 1 : 0],
+    const [result] = await db.query(
+      `INSERT INTO RESEARCH_PAPERS (journal_id, title, abstract, doi, publication_date, volume, issue, pages, pdf_url, cover_image_url, language, is_peer_reviewed, citation_count, view_count, download_count, status, visibility, publication_type, is_open_access, owner_user_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, TO_DATE(?, 'YYYY-MM-DD'), ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, SYSTIMESTAMP, SYSTIMESTAMP)`,
+      [journal_id ?? null, title, abstract, doi, publication_date, volume, issue, pages, pdf_url, cover_image_url, language, is_peer_reviewed ? 1 : 0, status, visibility, publication_type, is_open_access ? 1 : 0, paperData.owner_user_id || null],
       { returnColumn: 'paper_id' }
     );
     return result.insertId;
   }
 
-  static async attachAuthorsToPaper(paperId, authorEntries = []) {
+  static async attachAuthorsToPaper(paperId, authorEntries = [], db = pool) {
     for (const [index, entry] of authorEntries.entries()) {
       const fullName = String(entry.full_name || entry.name || '').trim();
       if (!entry.author_id && !fullName) continue;
       let authorId = Number(entry.author_id) || null;
       if (!authorId) {
-        const [matches] = await pool.query(
+        const [matches] = await db.query(
           `SELECT author_id FROM AUTHORS
            WHERE LOWER(full_name) = LOWER(?)
              AND NVL(LOWER(affiliation), '') = NVL(LOWER(?), '')
@@ -308,10 +296,10 @@ class Paper {
           email: entry.email || null,
           orcid: entry.orcid || null,
           biography: null
-        });
+        }, db);
       }
       try {
-        await pool.query(
+        await db.query(
           'INSERT INTO PAPER_AUTHORS (paper_id, author_id, author_order) VALUES (?, ?, ?)',
           [paperId, authorId, Number(entry.author_order) || index + 1]
         );
@@ -364,12 +352,12 @@ class Paper {
   static async recommend(paperId, userId) {
     try {
       const [result] = await pool.query(
-        'INSERT INTO PAPER_RECOMMENDATIONS (paper_id, user_id, created_at) VALUES (?, ?, SYSTIMESTAMP)',
+        'INSERT INTO PAPER_RECOMMENDATIONS (paper_id, user_id, recommended_at) VALUES (?, ?, SYSTIMESTAMP)',
         [paperId, userId]
       );
       return result.affectedRows;
     } catch (err) {
-      if (err.message.includes('ORA-00001')) return 1; // Unique constraint violation - already recommended
+      if (err.message.includes('ORA-00001')) return 0; // Unique constraint violation - already recommended
       throw err;
     }
   }

@@ -1,3 +1,4 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 
 
 const Joi = require('joi');
@@ -7,47 +8,15 @@ const EmailQueue = require('../models/EmailQueue');
 const Notification = require('../models/Notification');
 const ResearcherStats = require('../models/ResearcherStats');
 const { pool } = require('../config/database');
-const { demoPapers, filterPapers, isDatabaseUnavailable } = require('../utils/demoData');
 
-async function ensureUserAuthorClaim(userId, userDetails) {
-  if (!userId) return null;
-  try {
-    const [claims] = await pool.query(
-      "SELECT author_id FROM USER_AUTHOR_CLAIMS WHERE user_id = ? AND status = 'verified' FETCH NEXT 1 ROWS ONLY",
-      [userId]
-    );
-    if (claims[0]?.author_id) return claims[0].author_id;
-
-    const fullName = String(userDetails.full_name || userDetails.username || `User ${userId}`).trim();
-    const [authors] = await pool.query(
-      'SELECT author_id FROM AUTHORS WHERE LOWER(full_name) = LOWER(?) FETCH NEXT 1 ROWS ONLY',
-      [fullName]
-    );
-    let authorId = authors[0]?.author_id;
-
-    if (!authorId) {
-      authorId = await Author.create({
-        full_name: fullName,
-        affiliation: userDetails.affiliation || null,
-        country: userDetails.country || null,
-        email: userDetails.email || null
-      });
-    }
-
-    await pool.query(
-      `MERGE INTO USER_AUTHOR_CLAIMS target
-       USING (SELECT ? user_id, ? author_id FROM dual) source
-       ON (target.user_id = source.user_id AND target.author_id = source.author_id)
-       WHEN MATCHED THEN UPDATE SET status = 'verified'
-       WHEN NOT MATCHED THEN INSERT (user_id, author_id, status, created_at) VALUES (source.user_id, source.author_id, 'verified', SYSTIMESTAMP)`,
-      [userId, authorId]
-    );
-
-    return authorId;
-  } catch (e) {
-    console.error('Error ensuring author claim:', e.message);
-    return null;
-  }
+async function ensureUserAuthorClaim(userId, userDetails, tx) {
+  // Serialize first publication creation for this account. A matching name is not identity proof.
+  await tx.query('SELECT user_id FROM USERS WHERE user_id = ? FOR UPDATE', [userId]);
+  const [claims] = await tx.query("SELECT author_id FROM USER_AUTHOR_CLAIMS WHERE user_id = ? AND status = 'verified' FETCH FIRST 1 ROW ONLY", [userId]);
+  if (claims[0]) return claims[0].author_id;
+  const authorId = await Author.create({ full_name: userDetails.full_name || userDetails.username, affiliation: userDetails.affiliation || null, country: userDetails.country || null, email: userDetails.email || null }, tx);
+  await tx.query("INSERT INTO USER_AUTHOR_CLAIMS (user_id, author_id, status, created_at) VALUES (?, ?, 'verified', SYSTIMESTAMP)", [userId, authorId]);
+  return authorId;
 }
 
 const createPaperSchema = Joi.object({
@@ -134,17 +103,8 @@ class PaperController {
         pagination: { limit: numLimit, offset: numOffset }
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const papers = filterPapers(req.query.query);
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          data: papers,
-          query: req.query.query,
-          pagination: { limit: 20, offset: 0 }
-        });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -152,7 +112,7 @@ class PaperController {
     try {
       const paper = await Paper.findById(req.params.paperId);
 
-      if (!paper) {
+      if (!paper || !Paper.canRead(paper, req.user)) {
         return res.status(404).json({ error: 'Paper not found' });
       }
 
@@ -160,14 +120,8 @@ class PaperController {
 
       res.status(200).json({ success: true, data: paper });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const paper = demoPapers.find(item => item.paper_id === Number(req.params.paperId));
-        if (!paper) {
-          return res.status(404).json({ error: 'Paper not found' });
-        }
-        return res.status(200).json({ success: true, source: 'demo', data: paper });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -178,12 +132,8 @@ class PaperController {
 
       res.status(200).json({ success: true, data: papers, count: papers.length });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const limit = Math.min(parseInt(req.query.limit) || 10, 100);
-        const papers = demoPapers.slice(0, limit);
-        return res.status(200).json({ success: true, source: 'demo', data: papers, count: papers.length });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -200,17 +150,8 @@ class PaperController {
         params: { days, limit }
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const limit = Math.min(parseInt(req.query.limit) || 10, 100);
-        const papers = demoPapers.slice(0, limit);
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          data: papers,
-          params: { days: parseInt(req.query.days) || 30, limit }
-        });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -220,7 +161,7 @@ class PaperController {
       const papers = await Paper.getFeed(req.user.user_id, limit);
       res.status(200).json({ success: true, data: papers });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -233,7 +174,8 @@ class PaperController {
       const { error, value } = createPaperSchema.validate(req.body);
       if (error) return res.status(400).json({ error: error.details[0].message });
 
-      const userAuthorId = await ensureUserAuthorClaim(req.user.user_id, req.user);
+      const paperId = await pool.transaction(async tx => {
+      const userAuthorId = await ensureUserAuthorClaim(req.user.user_id, req.user, tx);
 
       let authors = value.authors || [];
       if (userAuthorId) {
@@ -247,8 +189,10 @@ class PaperController {
         }
       }
 
-      const paperId = await Paper.create(value);
-      await Paper.attachAuthorsToPaper(paperId, authors);
+      const createdId = await Paper.create({ ...value, owner_user_id: req.user.user_id }, tx);
+      await Paper.attachAuthorsToPaper(createdId, authors, tx);
+      return createdId;
+      });
 
       res.status(201).json({
         success: true,
@@ -256,25 +200,15 @@ class PaperController {
         data: { paper_id: paperId }
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          data: {
-            paper_id: demoPapers.length + 1,
-            title: req.body.title,
-            status: 'submitted'
-          }
-        });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
   static async requestFullText(req, res) {
     try {
       const paper = await Paper.findById(req.params.paperId);
-      if (!paper) {
+      if (!paper || !Paper.canRead(paper, req.user)) {
         return res.status(404).json({ error: 'Paper not found' });
       }
 
@@ -302,15 +236,8 @@ class PaperController {
         data: { email_id: emailId, recipient_email: recipientEmail, paper_id: paper.paper_id }
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          message: 'Full-text request queued',
-          data: { email_id: 1, recipient_email: 'demo@researchhub.local', paper_id: Number(req.params.paperId) }
-        });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -319,7 +246,7 @@ class PaperController {
       const stats = await Paper.getStats();
       res.status(200).json({ success: true, data: stats });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -328,7 +255,7 @@ class PaperController {
       const fields = await Paper.getTrendingFields(5);
       res.status(200).json({ success: true, data: fields });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -338,7 +265,7 @@ class PaperController {
       const userId = req.user.user_id;
       
       const paper = await Paper.findById(paperId);
-      if (!paper) {
+      if (!paper || !Paper.canRead(paper, req.user)) {
         return res.status(404).json({ error: 'Paper not found' });
       }
 
@@ -355,10 +282,8 @@ class PaperController {
       
       res.status(200).json({ success: true, message: 'Paper recommended' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', message: 'Paper recommended' });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 
@@ -370,10 +295,8 @@ class PaperController {
       await Paper.unrecommend(paperId, userId);
       res.status(200).json({ success: true, message: 'Paper recommendation removed' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', message: 'Paper recommendation removed' });
-      }
-      res.status(500).json({ error: error.message });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      res.status(error.status || 500).json({ error: error.message });
     }
   }
 }

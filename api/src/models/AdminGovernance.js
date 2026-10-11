@@ -85,7 +85,7 @@ class AdminGovernance {
   }
 
   static async assignRole(userId, roleKey, actorUserId) {
-    return pool.call('BEGIN PKG_ADMIN.assign_role(:userId, :roleKey, :actorUserId); END;', {
+    return pool.call('BEGIN PKG_ADMIN.assign_role(:userId, :roleKey, :actorUserId); UPDATE USERS SET role = :roleKey, updated_at = SYSTIMESTAMP WHERE user_id = :userId; END;', {
       userId,
       roleKey,
       actorUserId

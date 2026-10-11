@@ -11,7 +11,6 @@ import { ProfileTabSaved } from './profile-tab-saved';
 import { BadgeCheck, Loader2 } from 'lucide-react';
 import { getMyProfile, PublicResearcherProfile } from '@/lib/api';
 import { EditProfileModal } from './edit-profile-modal';
-import { ScholarBadges } from './scholar-badges';
 import { VerificationRequestModal } from './verification-request-modal';
 import { ProfileShareModal } from './profile-share-modal';
 
@@ -72,11 +71,11 @@ export function ProfileLayout() {
 
   return (
     <div className="space-y-6">
-      <EditProfileModal 
-        profile={profile} 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
-        onUpdate={(updated) => setProfile(updated)} 
+      <EditProfileModal
+        profile={profile}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUpdate={(updated) => setProfile(updated)}
       />
       {/* Profile Header Card */}
       <section className="rounded-soft border border-line bg-paper shadow-stitch dark:border-darkLine dark:bg-darkCard">
@@ -88,14 +87,14 @@ export function ProfileLayout() {
                  <div>
                     <h1 className="flex items-center gap-2 text-2xl font-black">
                       {profile.full_name || profile.username}
-                      <BadgeCheck className="text-primary" size={20} />
+                      {(profile.is_verified || profile.researcher_verified_at) ? <BadgeCheck className="text-primary" size={20} aria-label="Verified researcher" /> : null}
                     </h1>
                     <p className="mt-1 font-semibold text-slate-700 dark:text-slate-300">{profile.headline || profile.position_title}</p>
                     <p className="mt-1 text-sm text-muted dark:text-darkMuted">{[profile.department, profile.affiliation, profile.country].filter(Boolean).join(' · ')}</p>
-                    <ScholarBadges profile={profile} />
+
                     <div className="mt-4 flex gap-6 text-sm font-bold text-slate-700 dark:text-slate-300">
                        <div className="flex flex-col"><span className="text-xl font-black text-ink dark:text-darkInk">{profile.total_reads || 0}</span> Reads</div>
-                       <div className="flex flex-col"><span className="text-xl font-black text-ink dark:text-darkInk">{profile.rg_score || 0}</span> RI Score</div>
+                       <div className="flex flex-col"><span className="text-xl font-black text-ink dark:text-darkInk">{profile.publication_count || profile.papers?.length || 0}</span> Publications</div>
                     </div>
                  </div>
                </div>
@@ -123,10 +122,10 @@ export function ProfileLayout() {
           />
 
          {/* Tabs Navigation */}
-         <div className="flex items-center justify-between border-t border-line px-6 dark:border-darkLine">
-            <nav className="flex gap-8 text-sm font-bold">
+         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 pb-4 dark:border-darkLine">
+            <nav className="flex min-w-0 max-w-full gap-5 overflow-x-auto text-sm font-bold">
                {['profile', 'research', 'stats', 'following', 'saved list'].map(tab => (
-                 <button 
+                 <button
                    key={tab}
                    onClick={() => setActiveTab(tab)}
                    className={`border-b-[3px] py-4 capitalize transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted hover:border-slate-300 hover:text-ink dark:text-darkMuted dark:hover:border-slate-700 dark:hover:text-darkInk'}`}
@@ -141,7 +140,7 @@ export function ProfileLayout() {
 
       {/* Main Content Area */}
       <div className="animate-in fade-in duration-300">
-         {activeTab === 'profile' && <ProfileTabOverview profile={profile} onUpdate={fetchProfile} />}
+         {activeTab === 'profile' && <ProfileTabOverview profile={profile} onUpdate={fetchProfile} onEdit={() => setIsEditModalOpen(true)} onVerify={() => setIsVerifyModalOpen(true)} />}
          {activeTab === 'research' && <ProfileTabResearch profile={profile} />}
          {activeTab === 'stats' && <ProfileTabStats profile={profile} />}
          {activeTab === 'following' && <ProfileTabFollowing profile={profile} />}

@@ -4,7 +4,7 @@ const AuthMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/paper/:paperId', ReviewController.getByPaper);
+router.get('/paper/:paperId', AuthMiddleware.optionalToken, ReviewController.getByPaper);
 router.post('/', AuthMiddleware.verifyToken, ReviewController.create);
 router.put('/:reviewId', AuthMiddleware.verifyToken, ReviewController.update);
 router.delete('/:reviewId', AuthMiddleware.verifyToken, ReviewController.delete);
