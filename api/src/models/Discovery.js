@@ -5,11 +5,11 @@ function parseCursor(cursor) {
   if (!cursor) return {};
   try {
     const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
-    return {
-      beforeDate: value.beforeDate ? new Date(value.beforeDate) : null,
-      beforeId: Number(value.beforeId) || null,
-      beforePriority: Number(value.beforePriority) || 0
-    };
+    const beforeDate = new Date(value?.beforeDate);
+    const beforeId = Number(value?.beforeId);
+    const beforePriority = Number(value?.beforePriority);
+    if (!value?.beforeDate || !Number.isFinite(beforeDate.getTime()) || !Number.isSafeInteger(beforeId) || beforeId < 1 || !Number.isFinite(beforePriority)) throw new Error('Invalid cursor values');
+    return { beforeDate, beforeId, beforePriority };
   } catch (_error) {
     const error = new Error('Invalid feed cursor');
     error.status = 400;

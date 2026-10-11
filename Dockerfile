@@ -1,15 +1,8 @@
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY api/package.json api/package-lock.json ./
-RUN npm ci --only=production
-
-COPY api ./api
-
-COPY .env.example ./
-
-EXPOSE 3000
-
+FROM node:22-bookworm-slim
 WORKDIR /app/api
-CMD ["node", "server.js"]
+COPY api/package.json api/package-lock.json ./
+RUN npm ci --omit=dev
+COPY api ./
+COPY database /app/database
+EXPOSE 3000
+CMD ["npm", "start"]

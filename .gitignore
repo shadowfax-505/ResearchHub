@@ -46,3 +46,7 @@ web/out/
 # User uploads
 api/storage/uploads/
 *.tsbuildinfo
+
+# Browser verification transient reports
+web/test-results/
+web/playwright-report/

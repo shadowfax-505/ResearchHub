@@ -1,3 +1,4 @@
+const asyncHandler = require('../utils/asyncHandler');
 const express = require('express');
 const multer = require('multer');
 const UploadController = require('../controllers/UploadController');
@@ -22,9 +23,9 @@ const imageUpload = multer({
   }
 });
 
-router.post('/papers/:paperId/file', AuthMiddleware.verifyToken, upload.single('file'), UploadController.uploadPaperFile);
-router.post('/papers/:paperId/cover', AuthMiddleware.verifyToken, imageUpload.single('file'), UploadController.uploadPaperCover);
-router.get('/user-files/:fileId', UploadController.downloadUserFile);
-router.get('/:fileId', AuthMiddleware.optionalToken, UploadController.downloadPaperFile);
+router.post('/papers/:paperId/file', AuthMiddleware.verifyToken, upload.single('file'), asyncHandler(UploadController.uploadPaperFile));
+router.post('/papers/:paperId/cover', AuthMiddleware.verifyToken, imageUpload.single('file'), asyncHandler(UploadController.uploadPaperCover));
+router.get('/user-files/:fileId', asyncHandler(UploadController.downloadUserFile));
+router.get('/:fileId', AuthMiddleware.optionalToken, asyncHandler(UploadController.downloadPaperFile));
 
 module.exports = router;

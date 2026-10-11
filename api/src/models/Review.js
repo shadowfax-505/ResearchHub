@@ -7,7 +7,7 @@ class Review {
              r.created_at, r.updated_at, u.username, u.full_name
       FROM REVIEWS r
       JOIN USERS u ON r.user_id = u.user_id
-      WHERE r.paper_id = ?
+      WHERE r.paper_id = ? AND r.status = 'published' AND r.visibility = 'public'
       ORDER BY r.created_at DESC
     `, [paperId]);
     return rows;
@@ -36,7 +36,7 @@ class Review {
 
   static async update(reviewId, userId, rating, reviewText) {
     const [result] = await pool.query(
-      `UPDATE REVIEWS SET rating = ?, review_text = ?, updated_at = SYSTIMESTAMP
+      `UPDATE REVIEWS SET rating = NVL(?, rating), review_text = NVL(?, review_text), updated_at = SYSTIMESTAMP
        WHERE review_id = ? AND user_id = ?`,
       [rating, reviewText, reviewId, userId]
     );
@@ -53,7 +53,7 @@ class Review {
 
   static async getAverageRating(paperId) {
     const [rows] = await pool.query(
-      'SELECT AVG(rating) AS avg_rating, COUNT(*) AS review_count FROM REVIEWS WHERE paper_id = ?',
+      "SELECT AVG(rating) AS avg_rating, COUNT(*) AS review_count FROM REVIEWS WHERE paper_id = ? AND status = 'published' AND visibility = 'public'",
       [paperId]
     );
     return rows[0] || { avg_rating: null, review_count: 0 };

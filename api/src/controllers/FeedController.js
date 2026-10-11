@@ -1,9 +1,6 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Discovery = require('../models/Discovery');
-const { demoPapers } = require('../utils/demoData');
 
-function isConnectionFailure(error) {
-  return /NJS-503|NJS-500|ECONNREFUSED|connection.*(closed|lost|failed)|no listener/i.test(String(error?.message || error));
-}
 
 const getGlobalFeed = async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
@@ -17,20 +14,7 @@ const getGlobalFeed = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching scientific feed:', error);
-    if (isConnectionFailure(error)) {
-      return res.json({
-        success: true,
-        source: 'demo',
-        data: demoPapers.slice(0, limit).map(paper => ({
-          ...paper,
-          feed_priority: 0,
-          feed_reason: 'discovery',
-          authors: paper.authors || []
-        })),
-        pagination: { next_cursor: null, has_more: false, limit },
-        onboarding: req.user ? { needs_interests: true } : null
-      });
-    }
+    if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
     return res.status(error.status || 500).json({ error: error.message || 'Failed to retrieve feed' });
   }
 };

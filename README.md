@@ -6,6 +6,10 @@ citations, build collections, ask and answer questions, request full texts,
 post jobs and projects, and message each other. Moderators get an admin
 dashboard, reports and analytics.
 
+## Verified improvement
+
+The reading-room redesign is paired with real Oracle persistence and explicit ownership checks. The current verification record is [docs/VERIFICATION_2026-10-11.md](docs/VERIFICATION_2026-10-11.md). It distinguishes tested workflows from deployment and email prerequisites. Screenshots use seeded development records; they are not adoption or scholarly-impact claims.
+
 ## Stack
 
 | Layer | Technology |
@@ -31,13 +35,13 @@ docs/           API reference, setup and deployment guides, project report
 
 ### 1. Database
 
-Start Oracle with Docker (schema and seed data load on first start):
+Start the development Oracle service. The API migration runner applies the schema; seeding is explicit:
 
 ```bash
 docker compose up -d db
 ```
 
-Or apply them to an existing instance:
+For an existing instance, create the application user, set `api/.env`, and use `npm --prefix api run migrate`. The low-level initial schema can also be applied with SQL*Plus; do not reapply it to a populated schema:
 
 ```bash
 sqlplus researchhub_user/<password>@localhost:1521/XEPDB1 @database/schema.sql
@@ -56,7 +60,9 @@ cp api/.env.example api/.env   # set DB_* values and JWT_SECRET
 
 ```bash
 npm run install:all
-cd api && npm run migrate && cd ..
+npm --prefix api run migrate
+# Optional, local development sample records only:
+npm --prefix api run seed
 npm run dev        # API on http://localhost:3000
 npm run dev:web    # web on http://localhost:3001
 ```
@@ -70,8 +76,9 @@ the accounts are listed in [api/DEMO_ACCOUNTS.md](api/DEMO_ACCOUNTS.md).
 ## Tests
 
 ```bash
-npm test               # API unit tests
-npm run test:web:e2e   # Playwright end-to-end tests
+npm test                         # API unit tests, no database required
+npm --prefix api run test:integration  # Requires isolated RH_QA_* Oracle schema
+npm run test:web:e2e              # API + production web running, isolated RH_QA_* schema
 ```
 
 ## API

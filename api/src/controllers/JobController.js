@@ -1,5 +1,7 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Job = require('../models/Job');
-const { demoJobs, isDatabaseUnavailable } = require('../utils/demoData');
+const Joi = require('joi');
+const jobSchema = Joi.object({ title: Joi.string().max(255).required(), employer: Joi.string().max(255).required(), location: Joi.string().max(255).allow('',null), description: Joi.string().max(20000).required(), requirements: Joi.string().max(20000).allow('',null), salary_range: Joi.string().max(100).allow('',null), employment_type: Joi.string().max(100), country: Joi.string().max(100).allow('',null), discipline: Joi.string().max(150).allow('',null), remote_mode: Joi.string().max(50), career_level: Joi.string().max(100).allow('',null) });
 
 function filtersFromQuery(query) {
   return {
@@ -25,21 +27,23 @@ class JobController {
       const filters = filtersFromQuery(req.query);
       const [jobs, total] = await Promise.all([Job.getAll(limit, offset, query, filters), Job.getCount(query, filters)]);
       res.json({ success: true, data: jobs, pagination: { limit, offset, total, has_more: offset + jobs.length < total } });
-    } catch (error) { if (isDatabaseUnavailable(error)) return res.json({ success: true, source: 'demo', data: demoJobs, pagination: { limit: 20, offset: 0, total: demoJobs.length, has_more: false } }); res.status(500).json({ success: false, error: error.message }); }
+    } catch (error) { if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res); res.status(500).json({ success: false, error: error.message }); }
   }
 
   static async getFilters(req, res) {
     try { res.json({ success: true, data: await Job.getFilters() }); }
-    catch (error) { if (isDatabaseUnavailable(error)) return res.json({ success: true, source: 'demo', data: { countries: [], disciplines: [], employment_types: [], remote_modes: [], career_levels: [], institutions: [] } }); res.status(500).json({ success: false, error: error.message }); }
+    catch (error) { if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res); res.status(500).json({ success: false, error: error.message }); }
   }
 
   static async getById(req, res) {
     try { const job = await Job.getById(req.params.id); if (!job) return res.status(404).json({ success: false, error: 'Job not found' }); res.json({ success: true, data: job }); }
-    catch (error) { if (isDatabaseUnavailable(error)) { const job = demoJobs.find(item => String(item.job_id) === String(req.params.id)); if (job) return res.json({ success: true, source: 'demo', data: job }); } res.status(500).json({ success: false, error: error.message }); }
+    catch (error) { if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res); res.status(500).json({ success: false, error: error.message }); }
   }
 
   static async create(req, res) {
-    try { const jobId = await Job.create({ ...req.body, posted_by: req.user.user_id }); res.status(201).json({ success: true, data: { job_id: jobId } }); }
+    const validated = jobSchema.validate(req.body, { stripUnknown: true });
+    if (validated.error) return res.status(400).json({ error: validated.error.details[0].message });
+    try { const jobId = await Job.create({ ...validated.value, posted_by: req.user.user_id }); res.status(201).json({ success: true, data: { job_id: jobId } }); }
     catch (error) { res.status(500).json({ success: false, error: error.message }); }
   }
 

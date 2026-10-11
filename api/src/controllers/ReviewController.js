@@ -1,3 +1,5 @@
+const Paper = require('../models/Paper');
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Joi = require('joi');
 const Review = require('../models/Review');
 const ResearcherStats = require('../models/ResearcherStats');
@@ -16,10 +18,13 @@ const updateSchema = Joi.object({
 class ReviewController {
   static async getByPaper(req, res) {
     try {
+      const paper = await Paper.findById(req.params.paperId);
+      if (!paper || !Paper.canRead(paper, req.user)) return res.status(404).json({ error: 'Paper not found' });
       const reviews = await Review.findByPaper(req.params.paperId);
       const stats = await Review.getAverageRating(req.params.paperId);
       res.status(200).json({ success: true, data: reviews, stats });
     } catch (error) {
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -29,6 +34,8 @@ class ReviewController {
     if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
+      const paper = await Paper.findById(value.paper_id);
+      if (!paper || !Paper.canRead(paper, req.user)) return res.status(404).json({ error: 'Paper not found' });
       const reviewId = await Review.create(req.user.user_id, value.paper_id, value.rating, value.review_text || null);
       await ResearcherStats.refreshForUser(req.user.user_id).catch(() => undefined);
       res.status(201).json({
@@ -37,7 +44,8 @@ class ReviewController {
         data: { review_id: reviewId, user_id: req.user.user_id, paper_id: value.paper_id }
       });
     } catch (err) {
-      if (err.message && err.message.includes('unique_user_paper_review')) {
+      if (isDatabaseUnavailable(err)) return sendDatabaseUnavailable(res);
+      if (err.errorNum === 1) {
         return res.status(409).json({ error: 'You have already reviewed this paper' });
       }
       res.status(500).json({ error: err.message });
@@ -54,6 +62,7 @@ class ReviewController {
       await ResearcherStats.refreshForUser(req.user.user_id).catch(() => undefined);
       res.status(200).json({ success: true, message: 'Review updated' });
     } catch (err) {
+      if (isDatabaseUnavailable(err)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: err.message });
     }
   }
@@ -65,6 +74,7 @@ class ReviewController {
       await ResearcherStats.refreshForUser(req.user.user_id).catch(() => undefined);
       res.status(200).json({ success: true, message: 'Review deleted' });
     } catch (err) {
+      if (isDatabaseUnavailable(err)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: err.message });
     }
   }

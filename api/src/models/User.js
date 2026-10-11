@@ -13,7 +13,7 @@ class User {
 
   static async findById(userId) {
     const [rows] = await pool.query(
-      'SELECT user_id, username, email, full_name, role, affiliation, country, bio, profile_picture_url, email_verified_at, researcher_verified_at, is_active, is_verified, last_login, created_at, updated_at FROM USERS WHERE user_id = ?',
+      'SELECT user_id, username, email, full_name, role, affiliation, country, bio, profile_picture_url, email_verified_at, researcher_verified_at, session_version, account_status, is_active, is_verified, last_login, created_at, updated_at FROM USERS WHERE user_id = ?',
       [userId]
     );
     return rows[0];
@@ -45,23 +45,13 @@ class User {
 
   static async create(userData) {
     const { username, email, password_hash, full_name, role = 'researcher', affiliation, country, bio } = userData;
-    try {
-      await pool.query(
-        'INSERT INTO EMAIL_IDENTITIES (normalized_email, original_email) VALUES (LOWER(TRIM(?)), ?)',
-        [email, email]
-      );
-    } catch (error) {
-      if (!/ORA-00001|unique constraint/i.test(String(error.message))) throw error;
-      const duplicate = new Error('Email already exists');
-      duplicate.code = 'EMAIL_ALREADY_RESERVED';
-      throw duplicate;
-    }
-    const [result] = await pool.query(
-      'INSERT INTO USERS (username, email, password_hash, full_name, role, affiliation, country, bio, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, SYSTIMESTAMP)',
-      [username, email, password_hash, full_name, role, affiliation, country, bio],
-      { returnColumn: 'user_id' }
-    );
-    return result.insertId;
+    return pool.transaction(async tx => {
+      await tx.query('INSERT INTO EMAIL_IDENTITIES (normalized_email, original_email) VALUES (LOWER(TRIM(?)), ?)', [email, email]);
+      const [result] = await tx.query(
+        'INSERT INTO USERS (username, email, password_hash, full_name, role, affiliation, country, bio, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, SYSTIMESTAMP)',
+        [username, email, password_hash, full_name, role, affiliation, country, bio], { returnColumn: 'user_id' });
+      return result.insertId;
+    });
   }
 
   static async update(userId, userData) {
@@ -135,9 +125,9 @@ class User {
     return result.affectedRows;
   }
 
-  static async updatePassword(userId, passwordHash) {
-    const [result] = await pool.query(
-      'UPDATE USERS SET password_hash = ?, updated_at = SYSTIMESTAMP WHERE user_id = ?',
+  static async updatePassword(userId, passwordHash, connection = pool) {
+    const [result] = await connection.query(
+      'UPDATE USERS SET password_hash = ?, session_version = session_version + 1, updated_at = SYSTIMESTAMP WHERE user_id = ?',
       [passwordHash, userId]
     );
     return result.affectedRows;

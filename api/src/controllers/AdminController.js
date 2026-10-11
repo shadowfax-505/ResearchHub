@@ -1,3 +1,4 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const User = require('../models/User');
 const Paper = require('../models/Paper');
 const Question = require('../models/Question');
@@ -6,7 +7,6 @@ const ResearcherStats = require('../models/ResearcherStats');
 const AdminGovernance = require('../models/AdminGovernance');
 const Author = require('../models/Author');
 const Joi = require('joi');
-const { demoQuestions, demoUsers, isDatabaseUnavailable } = require('../utils/demoData');
 const VerificationRequest = require('../models/VerificationRequest');
 
 const moderationActionSchema = Joi.object({
@@ -53,20 +53,7 @@ class AdminController {
         }
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          data: {
-            users: { total: 3, active: 3 },
-            papers: { total_papers: 4, avg_citations: 211, max_citations: 267, total_views: 19490 },
-            questions: { total_questions: 2, total_answers: 3, total_views: 60 },
-            email_queue: { queued: 1, pending: 1, sent: 0, failed: 0 },
-            platform: { cached_profiles: 3, avg_rg_score: 11, max_rg_score: 18, total_full_text_requests: 1, total_reads: 4 },
-            recent: demoQuestions
-          }
-        });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -79,9 +66,7 @@ class AdminController {
       const stats = await User.getStats();
       res.status(200).json({ success: true, data: users, pagination: { limit, offset, total: stats.total } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', data: demoUsers, pagination: { limit: 20, offset: 0, total: demoUsers.length } });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -101,7 +86,7 @@ class AdminController {
       const data = await AdminGovernance.getModerationCases(limit, offset);
       res.status(200).json({ success: true, data, pagination: { limit, offset } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: [], pagination: { limit, offset } });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -124,7 +109,7 @@ class AdminController {
       const data = await AdminGovernance.getAuditLogs(limit, offset);
       res.status(200).json({ success: true, data, pagination: { limit, offset } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: [], pagination: { limit, offset } });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -135,7 +120,7 @@ class AdminController {
       const data = await AdminGovernance.getEmailQueue(limit, offset);
       res.status(200).json({ success: true, data, pagination: { limit, offset } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: [], pagination: { limit, offset } });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -157,7 +142,7 @@ class AdminController {
       ]);
       res.status(200).json({ success: true, data: { messages, projects } });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: { messages: [], projects: [] } });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -191,7 +176,7 @@ class AdminController {
       const users = await User.getUnverifiedUsers();
       res.status(200).json({ success: true, data: users });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', data: [] });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ success: false, error: error.message });
     }
   }
