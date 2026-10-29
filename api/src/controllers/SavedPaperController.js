@@ -1,8 +1,8 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 const Joi = require('joi');
 const SavedPaper = require('../models/SavedPaper');
 const Paper = require('../models/Paper');
 const ResearcherStats = require('../models/ResearcherStats');
-const { demoSavedPapers, isDatabaseUnavailable } = require('../utils/demoData');
 
 const saveSchema = Joi.object({
   paper_id: Joi.number().integer().positive().required(),
@@ -16,9 +16,7 @@ class SavedPaperController {
       const papersWithAuthors = await Paper.attachAuthors(papers);
       res.status(200).json({ success: true, data: papersWithAuthors, count: papersWithAuthors.length });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', data: demoSavedPapers, count: demoSavedPapers.length });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -28,6 +26,8 @@ class SavedPaperController {
     if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
+      const paper = await Paper.findById(value.paper_id);
+      if (!paper || !Paper.canRead(paper, req.user)) return res.status(404).json({ error: 'Paper not found' });
       await SavedPaper.create(req.user.user_id, value.paper_id, value.collection_name || 'Saved Papers');
       await ResearcherStats.refreshForUser(req.user.user_id).catch(() => undefined);
       res.status(201).json({
@@ -39,17 +39,7 @@ class SavedPaperController {
         }
       });
     } catch (err) {
-      if (isDatabaseUnavailable(err)) {
-        return res.status(201).json({
-          success: true,
-          source: 'demo',
-          data: {
-            user_id: req.user.user_id,
-            paper_id: value.paper_id,
-            collection_name: value.collection_name || 'Saved Papers'
-          }
-        });
-      }
+      if (isDatabaseUnavailable(err)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: err.message });
     }
   }
@@ -60,7 +50,7 @@ class SavedPaperController {
       await ResearcherStats.refreshForUser(req.user.user_id).catch(() => undefined);
       res.status(200).json({ success: true, message: 'Saved paper removed' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(200).json({ success: true, source: 'demo', message: 'Saved paper removed' });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }

@@ -1,20 +1,20 @@
 const { pool } = require('../config/database');
 
 class UserSetting {
-  static async findByUser(userId) {
-    const [rows] = await pool.query(
+  static async findByUser(userId, connection = pool) {
+    const [rows] = await connection.query(
       'SELECT user_id, theme, density, notifications, privacy, updated_at FROM USER_SETTINGS WHERE user_id = ?',
       [userId]
     );
     return rows[0] || null;
   }
 
-  static async upsert(userId, settings) {
+  static async upsert(userId, settings, connection = pool) {
     const notifications = JSON.stringify(settings.notifications || {});
     const privacy = JSON.stringify(settings.privacy || {});
     const theme = settings.theme || 'system';
     const density = settings.density || 'comfortable';
-    await pool.query(`
+    await connection.query(`
       MERGE INTO USER_SETTINGS target
       USING (SELECT ? AS user_id FROM dual) source
       ON (target.user_id = source.user_id)

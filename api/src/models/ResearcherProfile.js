@@ -9,25 +9,25 @@ try {
 
 class ResearcherProfile {
   static async getInstitutionalRankings() {
-    const sql = `
-      SELECT u.institution AS institution_name,
-             COUNT(DISTINCT u.user_id) AS researchers_count,
-             COUNT(DISTINCT rp.paper_id) AS total_publications,
-             NVL(SUM(rp.citation_count), 0) AS total_citations,
-             NVL(SUM(rp.view_count), 0) AS total_reads
-      FROM USERS u
-      LEFT JOIN PAPER_AUTHORS pa ON u.user_id = pa.author_id
-      LEFT JOIN RESEARCH_PAPERS rp ON pa.paper_id = rp.paper_id
-      WHERE u.institution IS NOT NULL
-      GROUP BY u.institution
-      ORDER BY total_publications DESC, total_citations DESC
-    `;
-    try {
-      const [rows] = await pool.query(sql);
-      return rows || [];
-    } catch (_) {
-      return [];
-    }
+    const [rows] = await pool.query(`
+      WITH members AS (
+        SELECT user_id, affiliation FROM USERS
+        WHERE affiliation IS NOT NULL AND is_active = 1 AND account_status = 'active'
+      ), institution_papers AS (
+        SELECT DISTINCT m.affiliation, p.paper_id, p.citation_count, p.view_count
+        FROM members m JOIN USER_AUTHOR_CLAIMS c ON c.user_id = m.user_id AND c.status = 'verified'
+        JOIN PAPER_AUTHORS pa ON pa.author_id = c.author_id
+        JOIN RESEARCH_PAPERS p ON p.paper_id = pa.paper_id AND p.status = 'published' AND p.visibility = 'public'
+      ), totals AS (
+        SELECT affiliation, COUNT(*) total_publications, SUM(citation_count) total_citations, SUM(view_count) total_reads
+        FROM institution_papers GROUP BY affiliation
+      )
+      SELECT m.affiliation institution_name, COUNT(*) researchers_count,
+        NVL(t.total_publications, 0) total_publications, NVL(t.total_citations, 0) total_citations, NVL(t.total_reads, 0) total_reads
+      FROM members m LEFT JOIN totals t ON t.affiliation = m.affiliation
+      GROUP BY m.affiliation, t.total_publications, t.total_citations, t.total_reads
+      ORDER BY total_publications DESC, total_citations DESC`);
+    return rows;
   }
 
   static async findPublicBySlug(slug) {
@@ -60,6 +60,30 @@ class ResearcherProfile {
       papers: result.papers || [],
       questions: result.questions || []
     };
+  }
+
+  // Owner view does not go through the public-profile visibility gate.
+  static async findMine(userId) {
+    const [profiles] = await pool.query(`SELECT u.user_id, u.username, u.full_name, u.email, u.affiliation, u.country, u.bio,
+      u.profile_picture_url, u.is_verified, u.email_verified_at, u.researcher_verified_at,
+      rp.slug, rp.headline, rp.department, rp.position_title, rp.website_url, rp.orcid, rp.visibility
+      FROM USERS u LEFT JOIN RESEARCHER_PROFILES rp ON rp.user_id = u.user_id WHERE u.user_id = ?`, [userId]);
+    if (!profiles.length) return null;
+    const [education, experience, skills, languages, disciplines, papers, questions] = await Promise.all([
+      pool.query('SELECT * FROM USER_EDUCATION WHERE user_id = ? ORDER BY start_year DESC', [userId]),
+      pool.query('SELECT * FROM USER_EXPERIENCE WHERE user_id = ? ORDER BY start_date DESC', [userId]),
+      pool.query('SELECT * FROM USER_SKILLS WHERE user_id = ? ORDER BY skill_name', [userId]),
+      pool.query('SELECT * FROM USER_LANGUAGES WHERE user_id = ? ORDER BY language_name', [userId]),
+      pool.query('SELECT * FROM USER_DISCIPLINES WHERE user_id = ? ORDER BY discipline_name', [userId]),
+      pool.query(`SELECT p.* FROM RESEARCH_PAPERS p WHERE p.owner_user_id = ? OR EXISTS
+        (SELECT 1 FROM PAPER_AUTHORS pa JOIN USER_AUTHOR_CLAIMS c ON c.author_id = pa.author_id
+         WHERE pa.paper_id = p.paper_id AND c.user_id = ? AND c.status = 'verified') ORDER BY p.publication_date DESC`, [userId, userId]),
+      pool.query('SELECT question_id, title, category, view_count, answer_count FROM QUESTIONS WHERE user_id = ? ORDER BY created_at DESC', [userId])
+    ]);
+    return { ...profiles[0], education: education[0], experience: experience[0], skills: skills[0], languages: languages[0],
+      disciplines: disciplines[0], papers: papers[0], questions: questions[0], publication_count: papers[0].length,
+      total_reads: papers[0].reduce((sum, paper) => sum + Number(paper.view_count || 0), 0),
+      citations: papers[0].reduce((sum, paper) => sum + Number(paper.citation_count || 0), 0) };
   }
 
   static async getAllResearchers(limit = 20, offset = 0) {

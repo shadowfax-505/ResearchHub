@@ -10,11 +10,12 @@ const uploadRoot = path.resolve(process.env.UPLOAD_ROOT || path.join(__dirname, 
 
 class UploadController {
   static async uploadPaperFile(req, res) {
-    if (!req.file) return res.status(400).json({ error: 'A PDF file is required' });
+    if (!req.file || !req.file.buffer.subarray(0, 5).equals(Buffer.from('%PDF-'))) return res.status(400).json({ error: 'A valid PDF file is required' });
     const paperId = Number(req.params.paperId);
     if (!Number.isInteger(paperId) || paperId <= 0) return res.status(400).json({ error: 'Invalid paper ID' });
     const paper = await Paper.findById(paperId);
     if (!paper) return res.status(404).json({ error: 'Paper not found' });
+    if (req.user.role !== 'admin' && Number(paper.owner_user_id) !== Number(req.user.user_id)) return res.status(403).json({ error: 'Only the paper owner can attach files' });
     if (paper.status !== 'draft' && paper.status !== 'submitted' && paper.status !== 'published') {
       return res.status(409).json({ error: 'Paper is not accepting files' });
     }
@@ -49,6 +50,7 @@ class UploadController {
     if (!Number.isInteger(paperId) || paperId <= 0) return res.status(400).json({ error: 'Invalid paper ID' });
     const paper = await Paper.findById(paperId);
     if (!paper) return res.status(404).json({ error: 'Paper not found' });
+    if (req.user.role !== 'admin' && Number(paper.owner_user_id) !== Number(req.user.user_id)) return res.status(403).json({ error: 'Only the paper owner can attach files' });
     const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
     const extension = req.file.mimetype.split('/')[1].replace('jpeg', 'jpg');
     const storageKey = `${req.user.user_id}/${paperId}/${crypto.randomUUID()}.${extension}`;

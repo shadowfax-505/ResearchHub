@@ -1,22 +1,23 @@
+const { isDatabaseUnavailable, sendDatabaseUnavailable } = require('../utils/errors');
 
 
 const User = require('../models/User');
+const { pool } = require('../config/database');
 const AuthMiddleware = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 const ResearcherStats = require('../models/ResearcherStats');
-const { demoUser, demoResearcherStats, isDatabaseUnavailable } = require('../utils/demoData');
 const AuthToken = require('../models/AuthToken');
 const EmailQueue = require('../models/EmailQueue');
 const { sendTransactionalEmail } = require('../services/mailer');
 
 const registerSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(30).required(),
-  email: Joi.string().email().required(),
+  email: Joi.string().email().max(100).required(),
   password: Joi.string().min(8).required(),
-  full_name: Joi.string().max(255).required(),
-  affiliation: Joi.string().max(255),
-  country: Joi.string().max(100)
+  full_name: Joi.string().max(100).required(),
+  affiliation: Joi.string().max(150),
+  country: Joi.string().max(50)
 });
 
 const loginSchema = Joi.object({
@@ -32,8 +33,8 @@ async function deliverEmail({ userId, email, subject, text, html }) {
   } catch (error) {
     try {
       await EmailQueue.enqueue(userId, email, subject, text);
-    } catch (_queueError) {
-      if (error.code !== 'SMTP_NOT_CONFIGURED') throw error;
+    } catch (queueError) {
+      throw queueError;
     }
     return 'queued';
   }
@@ -121,25 +122,8 @@ class UserController {
         token
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const isAdminDemo = /^(admin|jane_doe)$/i.test(String(req.body.username || '')) || /admin/i.test(String(req.body.email || ''));
-        const user = {
-          ...demoUser,
-          username: req.body.username || demoUser.username,
-          full_name: req.body.full_name || demoUser.full_name,
-          role: isAdminDemo ? 'admin' : 'researcher',
-          user_id: isAdminDemo ? 99 : demoUser.user_id
-        };
-        const token = AuthMiddleware.generateToken(user);
-        AuthMiddleware.setSessionCookie(res, token);
-        return res.status(201).json({
-          success: true,
-          source: 'demo',
-          message: 'Demo account created for local development',
-          data: { user_id: user.user_id, username: user.username },
-          token
-        });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
+      if (error.errorNum === 1) return res.status(409).json({ error: 'This username or email is already registered.' });
       res.status(500).json({ error: error.message });
     }
   }
@@ -176,24 +160,7 @@ class UserController {
         token
       });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        const isAdminDemo = /^(admin|jane_doe)$/i.test(String(req.body.username || '')) || /admin/i.test(String(req.body.username || ''));
-        const user = {
-          ...demoUser,
-          username: req.body.username || demoUser.username,
-          role: isAdminDemo ? 'admin' : 'researcher',
-          user_id: isAdminDemo ? 99 : demoUser.user_id
-        };
-        const token = AuthMiddleware.generateToken(user);
-        AuthMiddleware.setSessionCookie(res, token);
-        return res.status(200).json({
-          success: true,
-          source: 'demo',
-          message: 'Demo login successful for local development',
-          data: { user_id: user.user_id, username: user.username, role: user.role },
-          token
-        });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -253,9 +220,7 @@ class UserController {
       const stats = await ResearcherStats.getOrRefresh(req.user.user_id);
       res.status(200).json({ success: true, data: stats });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) {
-        return res.status(200).json({ success: true, source: 'demo', data: demoResearcherStats });
-      }
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -272,7 +237,7 @@ class UserController {
       await User.markEmailVerified(consumed.user_id);
       res.status(200).json({ success: true, message: 'Email verified' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(503).json({ error: 'Email verification is unavailable until the database is connected' });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -290,7 +255,7 @@ class UserController {
   }
 
   static async forgotPassword(req, res) {
-    const { error, value } = Joi.object({ email: Joi.string().email().required() }).validate(req.body);
+    const { error, value } = Joi.object({ email: Joi.string().email().max(100).required() }).validate(req.body);
     if (error) return res.status(400).json({ error: error.details[0].message });
     try {
       const user = await User.findByEmail(value.email);
@@ -307,7 +272,7 @@ class UserController {
       }
       res.status(202).json({ success: true, message: 'If that email exists, reset instructions have been sent' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(202).json({ success: true, source: 'demo', message: 'Reset instructions are queued for local development' });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }
@@ -316,12 +281,16 @@ class UserController {
     const { error, value } = Joi.object({ token: Joi.string().hex().length(64).required(), password: Joi.string().min(8).required() }).validate(req.body);
     if (error) return res.status(400).json({ error: error.details[0].message });
     try {
-      const consumed = await AuthToken.consume(value.token, 'password_reset');
+      const passwordHash = await bcrypt.hash(value.password, 12);
+      const consumed = await pool.transaction(async tx => {
+        const token = await AuthToken.consume(value.token, 'password_reset', tx);
+        if (token) await User.updatePassword(token.user_id, passwordHash, tx);
+        return token;
+      });
       if (!consumed) return res.status(400).json({ error: 'Reset link is invalid or expired' });
-      await User.updatePassword(consumed.user_id, await bcrypt.hash(value.password, 12));
       res.status(200).json({ success: true, message: 'Password updated' });
     } catch (error) {
-      if (isDatabaseUnavailable(error)) return res.status(503).json({ error: 'Password reset is unavailable until the database is connected' });
+      if (isDatabaseUnavailable(error)) return sendDatabaseUnavailable(res);
       res.status(500).json({ error: error.message });
     }
   }

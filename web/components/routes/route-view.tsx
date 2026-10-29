@@ -1,10 +1,15 @@
 'use client';
+import { AccountSettings as SettingsView } from '@/components/settings/account-settings';
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import clsx from 'clsx';
+import { DiscoveryFeed as GlobalFeed } from '../feed/discovery-feed';
+import { SearchWorkspace as SearchView } from '../search/search-workspace';
+import { AuthPanel } from '../auth/auth-panel';
+import { PublicationDetail as PaperDetail } from '../papers/publication-detail';
 import { MessagesView } from '../messages/messages-view';
 import { ProjectsView } from '../projects/projects-view';
 import { NetworkView } from '../network/network-view';
@@ -137,15 +142,15 @@ import {
 
 const copy = {
   dashboard: ['Admin Dashboard', 'Manage platform users, review research activity, and monitor queued requests.'],
-  search: ['Search & Discovery', 'Find papers, researchers, and topics with live API-backed search.'],
-  feed: ['Research Feed', 'Follow the newest work from your fields, collaborators, and saved interests.'],
+  search: ['Follow a question.', 'Explore publications, people, and the conversations that connect them.'],
+  feed: ['Your reading room.', 'Good research starts with curiosity. Follow an idea, find your people, and make something of it.'],
   questions: ['Questions & Answers', 'Ask research questions and reply from your profile-linked account.'],
   paper: ['Paper Details', 'Read the indexed publication record and its linked research metadata.'],
   profile: ['Researcher Profile', 'Manage identity, publications, collections, followers, and collaboration status.'],
   researcher: ['Researcher Profile', 'Explore publications, academic interests, and research contributions.'],
   author: ['Author Profile', 'Follow an external scholarly identity or request to claim it as your ResearchHub profile.'],
-  analytics: ['Author Analytics', 'Track citation velocity, publication reach, field activity, and downloads.'],
-  collections: ['Saved Collections', 'Organize saved papers into private and collaborative research folders.'],
+  analytics: ['Your research activity', 'Activity recorded within your ResearchHub account.'],
+  collections: ['A library of your own.', 'Keep the papers that matter. Make space for the ideas that follow.'],
   notifications: ['Notifications Activity', 'Review citation alerts, collaboration requests, mentions, and system updates.'],
   requests: ['Research Requests', 'Send and monitor paper access, collaboration, and dataset requests.'],
   login: ['Welcome Back', 'Sign in to sync saves, collections, requests, settings, and notifications.'],
@@ -287,7 +292,7 @@ function PublicResearcherProfileView({ slug }: { slug: string }) {
               </div>
             </div>
             <p className="mt-3 text-sm text-muted dark:text-darkMuted">{[profile.department, profile.affiliation, profile.country].filter(Boolean).join(' · ')}</p>
-            <ScholarBadges profile={profile} />
+
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric value={String(profile.rg_score || 0)} label="Research score" /><Metric value={String(profile.citations || 0)} label="Citations" /><Metric value={String(profile.total_reads || 0)} label="Reads" /><Metric value={String(profile.followers || 0)} label="Followers" /></div>
             {avatarStatus ? <p className="mt-3 text-xs font-semibold text-primary">{avatarStatus}</p> : null}
           </div>
@@ -696,210 +701,6 @@ function Dashboard() {
   );
 }
 
-function SearchView({ initialQuery }: { initialQuery?: string }) {
-  const [query, setQuery] = useState(() => initialQuery || '');
-  const [results, setResults] = useState<any[]>([]);
-  const [facets, setFacets] = useState<{ fields?: any[]; journals?: any[]; publication_types?: any[]; languages?: any[] }>({});
-  const [status, setStatus] = useState('');
-  const [activeTab, setActiveTab] = useState('publications');
-  const [filters, setFilters] = useState<Record<string, string>>({ sort: 'relevance' });
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-
-  const runSearch = useCallback(async (event?: FormEvent<HTMLFormElement>, nextOffset = 0) => {
-    event?.preventDefault();
-    setStatus('Searching...');
-    try {
-      const [searchResult, facetResult] = await Promise.all([
-        unifiedSearch(query, activeTab, { ...filters, offset: nextOffset }),
-        activeTab === 'publications' ? getSearchFacets(query) : Promise.resolve({ data: {} })
-      ]);
-      const nextResults = searchResult.data || [];
-      setResults(current => nextOffset > 0 ? [...current, ...nextResults] : nextResults);
-      setFacets(facetResult.data || {});
-      setOffset(nextOffset);
-      setHasMore(Boolean(searchResult.pagination?.has_more));
-      setStatus(`${searchResult.data?.length || 0} results loaded`);
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams({ q: query, type: activeTab, ...filters });
-        window.history.replaceState(null, '', `/search?${params.toString()}`);
-      }
-    } catch (error) {
-      setResults([]);
-      setStatus(error instanceof Error ? error.message : 'Search failed');
-    }
-  }, [activeTab, filters, query]);
-
-  useEffect(() => { runSearch(undefined, 0); }, [runSearch]);
-
-  const tabs = [
-    ['publications', 'Publications'], ['researchers', 'Researchers'], ['authors', 'Authors'],
-    ['journals', 'Journals'], ['topics', 'Topics'], ['questions', 'Questions'], ['jobs', 'Jobs'], ['projects', 'Projects']
-  ];
-
-  function updateFilter(key: string, value: string) {
-    setFilters(current => {
-      const next = { ...current };
-      if (!value) delete next[key];
-      else next[key] = value;
-      return next;
-    });
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="rounded-sm border border-line bg-white shadow-sm dark:border-darkLine dark:bg-darkCard">
-        <div className="p-6 pb-0">
-          <form onSubmit={event => runSearch(event, 0)} className="mb-6 flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-500" /><input value={query} onChange={event => setQuery(event.target.value)} className="h-10 w-full rounded-sm border border-line bg-white pl-10 pr-4 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Search publications, researchers, journals, or topics" /></div>
-            <Button type="submit" className="h-10 rounded-sm px-8 font-bold">Search</Button>
-          </form>
-          <div className="flex gap-5 overflow-x-auto border-b border-line dark:border-darkLine">
-            {tabs.map(([value, label]) => <button key={value} onClick={() => setActiveTab(value)} className={clsx('relative whitespace-nowrap pb-3 text-[15px] font-semibold transition', activeTab === value ? 'text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200')}>{label}</button>)}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className="space-y-4">
-          <p className="text-sm text-slate-500">{status}</p>
-          {activeTab === 'publications'
-            ? results.map(paper => <PaperCard key={paper.paper_id} paper={paper as PaperSummary} />)
-            : results.map((item, index) => {
-                if (activeTab === 'jobs' || item.job_id) {
-                  return (
-                    <article key={item.job_id || index} className="rounded-sm border border-line bg-white p-5 shadow-sm dark:border-darkLine dark:bg-darkCard">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <span className="text-xs font-bold uppercase tracking-wide text-primary">Job</span>
-                          <h2 className="mt-1 text-lg font-bold text-ink dark:text-darkInk">{item.title}</h2>
-                          <p className="text-sm font-semibold text-slate-600 dark:text-darkMuted">{item.institution_name || item.employer} • {item.location || item.country || 'Flexible'}</p>
-                        </div>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-darkPanel dark:text-darkMuted whitespace-nowrap">{item.remote_mode || 'On-site'}</span>
-                      </div>
-                      {item.description ? <p className="mt-3 line-clamp-3 text-sm text-slate-600 dark:text-darkMuted">{item.description}</p> : null}
-                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
-                        {item.career_level ? <span className="rounded bg-slate-100 px-2 py-1 dark:bg-darkPanel">{item.career_level}</span> : null}
-                        {item.employment_type ? <span className="rounded bg-slate-100 px-2 py-1 dark:bg-darkPanel">{item.employment_type}</span> : null}
-                        {item.salary_range ? <span className="rounded bg-slate-100 px-2 py-1 dark:bg-darkPanel">{item.salary_range}</span> : null}
-                      </div>
-                    </article>
-                  );
-                }
-                return (
-                  <article key={`${item.entity_type || activeTab}-${item.id || item.user_id || item.author_id || item.question_id || index}`} className="rounded-sm border border-line bg-white p-5 shadow-sm dark:border-darkLine dark:bg-darkCard">
-                    <p className="text-xs font-bold uppercase tracking-wide text-primary">{item.entity_type || activeTab}</p>
-                    <h2 className="mt-2 text-lg font-bold">{item.name || item.full_name || item.title || item.keyword || 'Untitled result'}</h2>
-                    <p className="mt-2 line-clamp-3 text-sm text-slate-600 dark:text-darkMuted">{item.description || item.bio || item.abstract || item.body || item.location || item.affiliation || 'Open this result to explore more.'}</p>
-                  </article>
-                );
-              })}
-          {!results.length ? <div className="rounded-sm border border-dashed border-line bg-white p-10 text-center text-slate-500 dark:border-darkLine dark:bg-darkCard">No {activeTab} found for &quot;{query || 'all research'}&quot;.</div> : null}
-          {hasMore ? <div className="flex justify-center"><Button variant="secondary" onClick={() => runSearch(undefined, offset + 20)}>Load more</Button></div> : null}
-        </section>
-
-        <aside className="space-y-4">
-          <div className="rounded-sm border border-line bg-white p-4 shadow-sm dark:border-darkLine dark:bg-darkCard">
-            <div className="flex items-center justify-between"><h3 className="font-bold">Filters</h3><button type="button" onClick={() => setFilters({ sort: 'relevance' })} className="text-xs font-bold text-primary">Clear all</button></div>
-            <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-xs font-bold text-slate-500">Sort<select value={filters.sort || 'relevance'} onChange={event => updateFilter('sort', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="citations">Most cited</option><option value="reads">Most read</option><option value="downloads">Most downloaded</option></select></label>
-              {activeTab === 'publications' ? <>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Field<select value={filters.field_id || ''} onChange={event => updateFilter('field_id', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All fields</option>{(facets.fields || []).map(field => <option key={field.id} value={field.id}>{field.name} ({field.count})</option>)}</select></label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Journal<select value={filters.journal_id || ''} onChange={event => updateFilter('journal_id', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All journals</option>{(facets.journals || []).map(journal => <option key={journal.id} value={journal.id}>{journal.name} ({journal.count})</option>)}</select></label>
-                <div className="grid grid-cols-2 gap-2"><label className="grid gap-1 text-xs font-bold text-slate-500">From<input value={filters.year_from || ''} onChange={event => updateFilter('year_from', event.target.value)} inputMode="numeric" placeholder="2010" className="h-9 rounded border border-line bg-white px-2 text-sm font-normal dark:border-darkLine dark:bg-darkPanel" /></label><label className="grid gap-1 text-xs font-bold text-slate-500">To<input value={filters.year_to || ''} onChange={event => updateFilter('year_to', event.target.value)} inputMode="numeric" placeholder="2026" className="h-9 rounded border border-line bg-white px-2 text-sm font-normal dark:border-darkLine dark:bg-darkPanel" /></label></div>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Publication type<select value={filters.publication_type || ''} onChange={event => updateFilter('publication_type', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All types</option>{(facets.publication_types || []).map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select></label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Language<select value={filters.language || ''} onChange={event => updateFilter('language', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All languages</option>{(facets.languages || []).map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select></label>
-                <div className="grid grid-cols-2 gap-2"><label className="grid gap-1 text-xs font-bold text-slate-500">Min citations<input value={filters.min_citations || ''} onChange={event => updateFilter('min_citations', event.target.value)} inputMode="numeric" className="h-9 rounded border border-line bg-white px-2 text-sm font-normal dark:border-darkLine dark:bg-darkPanel" /></label><label className="grid gap-1 text-xs font-bold text-slate-500">Max citations<input value={filters.max_citations || ''} onChange={event => updateFilter('max_citations', event.target.value)} inputMode="numeric" className="h-9 rounded border border-line bg-white px-2 text-sm font-normal dark:border-darkLine dark:bg-darkPanel" /></label></div>
-                <label className="flex items-center justify-between gap-2 text-sm font-semibold">Peer reviewed<input type="checkbox" checked={filters.is_peer_reviewed === '1'} onChange={event => updateFilter('is_peer_reviewed', event.target.checked ? '1' : '')} className="size-4 accent-primary" /></label>
-                <label className="flex items-center justify-between gap-2 text-sm font-semibold">Open access<input type="checkbox" checked={filters.is_open_access === '1'} onChange={event => updateFilter('is_open_access', event.target.checked ? '1' : '')} className="size-4 accent-primary" /></label>
-                <label className="flex items-center justify-between gap-2 text-sm font-semibold">Has full text<input type="checkbox" checked={filters.has_full_text === '1'} onChange={event => updateFilter('has_full_text', event.target.checked ? '1' : '')} className="size-4 accent-primary" /></label>
-              </> : activeTab === 'jobs' ? <>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Career Level<select value={filters.career_level || ''} onChange={event => updateFilter('career_level', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All levels</option><option value="Student / Intern">Student / Intern</option><option value="Entry Level">Entry Level</option><option value="Associate">Associate</option><option value="Mid-Senior">Mid-Senior</option><option value="Director">Director</option><option value="Executive">Executive</option></select></label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Work Mode<select value={filters.remote_mode || ''} onChange={event => updateFilter('remote_mode', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All modes</option><option value="On-site">On-site</option><option value="Hybrid">Hybrid</option><option value="Remote">Remote</option></select></label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Employment Type<select value={filters.employment_type || ''} onChange={event => updateFilter('employment_type', event.target.value)} className="h-9 rounded border border-line bg-white px-2 text-sm font-normal text-ink dark:border-darkLine dark:bg-darkPanel dark:text-darkInk"><option value="">All types</option><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option><option value="Temporary">Temporary</option></select></label>
-                <label className="grid gap-1 text-xs font-bold text-slate-500">Country / Location<input value={filters.country || filters.location || ''} onChange={event => { updateFilter('country', event.target.value); updateFilter('location', event.target.value); }} placeholder="e.g. Germany, USA" className="h-9 rounded border border-line bg-white px-2 text-sm font-normal dark:border-darkLine dark:bg-darkPanel" /></label>
-              </> : <p className="text-sm text-slate-500 dark:text-darkMuted">Filters adapt to the selected result type.</p>}
-            </div>
-          </div>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-
-function GlobalFeed() {
-  const [papers, setPapers] = useState<PaperSummary[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [status, setStatus] = useState('Loading scientific research...');
-  const [sortBy, setSortBy] = useState<'trending' | 'latest' | 'top_cited'>('trending');
-
-  const loadFeed = useCallback(async (nextCursor?: string) => {
-    try {
-      const result = await getGlobalFeed({ cursor: nextCursor, limit: 12 });
-      const next = result.data || [];
-      setPapers(current => nextCursor ? [...current, ...next] : next);
-      setCursor(result.pagination?.next_cursor || null);
-      setHasMore(Boolean(result.pagination?.has_more));
-      setStatus(next.length ? 'Research from followed profiles, interests, and scientific discovery' : 'No public research is available yet');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Unable to load the research feed');
-    }
-  }, []);
-
-  useEffect(() => { loadFeed(); }, [loadFeed]);
-
-  const sortedPapers = [...papers].sort((a, b) => {
-    if (sortBy === 'latest') {
-      return new Date((b as any).created_at || b.publication_date || 0).getTime() - new Date((a as any).created_at || a.publication_date || 0).getTime();
-    }
-    if (sortBy === 'top_cited') {
-      return (b.citation_count || 0) - (a.citation_count || 0);
-    }
-    // Default trending
-    return (((b as any).reads_count || (b as any).read_count || b.view_count || 0) + (b.citation_count || 0) * 2) - (((a as any).reads_count || (a as any).read_count || a.view_count || 0) + (a.citation_count || 0) * 2);
-  });
-
-  return (
-    <div className="space-y-5">
-      <div className="rounded-sm border border-primary/20 bg-primarySoft p-4 dark:bg-primary/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-bold text-ink dark:text-darkInk">Your scientific home</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-darkMuted">Follow researchers and authors to keep their publications at the top of your feed.</p>
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-white dark:bg-darkCard p-1 rounded-lg border border-line dark:border-darkLine shrink-0">
-          {[
-            ['trending', '🔥 Trending'],
-            ['latest', '✨ Latest'],
-            ['top_cited', '🏆 Top Cited']
-          ].map(([st, label]) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setSortBy(st as any)}
-              className={clsx(
-                'px-3 py-1.5 rounded-md text-xs font-bold transition',
-                sortBy === st
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <p className="text-sm text-slate-500 dark:text-darkMuted">{status}</p>
-      <div className="space-y-4">{sortedPapers.map(paper => <PaperCard key={paper.paper_id} paper={paper} />)}</div>
-      {!papers.length && !status.toLowerCase().includes('loading') ? <div className="rounded-sm border border-dashed border-line bg-white p-10 text-center text-slate-500 dark:border-darkLine dark:bg-darkCard">Try following a researcher or selecting fields and journals in settings.</div> : null}
-      {hasMore ? <div className="flex justify-center"><Button variant="secondary" onClick={() => loadFeed(cursor || undefined)}>Load more research</Button></div> : null}
-    </div>
-  );
-}
-
 function QuestionsView() {
   const [questions, setQuestions] = useState<QuestionSummary[]>([]);
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionSummary | null>(null);
@@ -943,6 +744,8 @@ function QuestionsView() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
+      const questionId = Number(params.get('question'));
+      if (questionId > 0) getQuestion(questionId).then(result => { if (result.data) setSelectedQuestion(result.data); }).catch(error => setStatus(error instanceof Error ? error.message : 'Unable to open question'));
       if (params.get('ask') === 'true') {
         setIsAsking(true);
       }
@@ -1147,9 +950,9 @@ function QuestionsView() {
           </div>
         ) : (
           <>
-            <QaLeaderboard />
-            <ScienceNewsTicker />
-            <ConferenceTracker />
+
+
+
 
             {/* Q&A Solved Rate Stat Banner */}
             <div className="bg-gradient-to-r from-[#e4f3f1] to-teal-50 dark:from-[#1a3835] dark:to-teal-950/40 border border-[#007062]/20 dark:border-[#20c5b3]/20 rounded-sm p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -1387,656 +1190,6 @@ function QuestionsView() {
   );
 }
 
-function PaperReviews({ paperId }: { paperId: string }) {
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [comment, setComment] = useState('');
-  const [rating, setRating] = useState(5);
-  const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState('');
-
-  const [showRequestDrawer, setShowRequestDrawer] = useState(false);
-  const [reviewerName, setReviewerName] = useState('');
-  const [reviewFocus, setReviewFocus] = useState('Methodology & Rigor');
-  const [reviewMessage, setReviewMessage] = useState('');
-  const [requestSending, setRequestSending] = useState(false);
-  const [requestStatus, setRequestStatus] = useState('');
-  const [showRebuttalFor, setShowRebuttalFor] = useState<number | null>(null);
-
-  useEffect(() => {
-    loadReviews();
-  }, [paperId]);
-
-  const loadReviews = () => {
-    setLoading(true);
-    getPaperReviews(paperId)
-      .then(res => setReviews(res?.data || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  const handleSendPeerReviewRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewerName.trim() || !reviewMessage.trim()) return;
-    setRequestSending(true);
-    try {
-      await createResearchRequest({
-        title: `Peer Review Request (${reviewFocus})`,
-        recipient_name: reviewerName.trim(),
-        paper_id: Number(paperId) || undefined,
-        request_type: 'peer_review',
-        message: `Focus Area: ${reviewFocus}\n\nNote from author: ${reviewMessage.trim()}`
-      });
-      setRequestStatus('Peer review request sent to ' + reviewerName.trim());
-      setReviewerName('');
-      setReviewMessage('');
-      setShowRequestDrawer(false);
-    } catch (err: any) {
-      setRequestStatus('Failed to send request: ' + (err.message || 'Error occurred'));
-    } finally {
-      setRequestSending(false);
-      setTimeout(() => setRequestStatus(''), 4000);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!comment.trim()) return;
-    setSubmitting(true);
-    try {
-      await submitPaperReview(paperId, rating, comment);
-      setStatus('Review submitted successfully!');
-      setComment('');
-      setRating(5);
-      loadReviews();
-    } catch (error: any) {
-      setStatus(`Error: ${error.message}`);
-    } finally {
-      setSubmitting(false);
-      setTimeout(() => setStatus(''), 3000);
-    }
-  };
-
-  return (
-    <div className="bg-white border border-line rounded-sm shadow-sm dark:bg-darkCard dark:border-darkLine p-6 lg:w-2/3">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-medium text-ink dark:text-darkInk">Reviews & Comments</h3>
-        <Button
-          onClick={() => setShowRequestDrawer(!showRequestDrawer)}
-          variant="outline"
-          className="h-8 text-xs font-bold border-primary text-primary hover:bg-primary/10"
-        >
-          {showRequestDrawer ? 'Close Request Drawer' : 'Request Peer Review'}
-        </Button>
-      </div>
-
-      {requestStatus && (
-        <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded text-xs font-bold text-primary">
-          {requestStatus}
-        </div>
-      )}
-
-      {/* Peer Review Request Drawer */}
-      {showRequestDrawer && (
-        <form onSubmit={handleSendPeerReviewRequest} className="mb-8 p-4 border border-primary/30 rounded-md bg-primarySoft/30 dark:bg-darkPanel dark:border-primary/40 space-y-3 animate-in slide-in-from-top-2 duration-200">
-          <h4 className="text-sm font-bold text-ink dark:text-white flex items-center gap-1.5">
-            Send Open Peer Review Request
-          </h4>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Target Researcher Name / Username</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. dr_sarah_chen or Stanford Researcher"
-                value={reviewerName}
-                onChange={(e) => setReviewerName(e.target.value)}
-                className="w-full border border-line rounded px-2.5 py-1.5 text-xs outline-none focus:border-primary dark:bg-darkCard dark:border-darkLine dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Review Focus Area</label>
-              <select
-                value={reviewFocus}
-                onChange={(e) => setReviewFocus(e.target.value)}
-                className="w-full border border-line rounded px-2.5 py-1.5 text-xs outline-none focus:border-primary dark:bg-darkCard dark:border-darkLine dark:text-white"
-              >
-                <option value="Methodology & Rigor">Methodology & Rigor</option>
-                <option value="Reproducibility & Code">Reproducibility & Code</option>
-                <option value="Novelty & Impact">Novelty & Impact</option>
-                <option value="Comprehensive Open Peer Review">Comprehensive Open Peer Review</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Instructions / Note for Reviewer</label>
-            <textarea
-              required
-              rows={2}
-              placeholder="e.g. Please evaluate section 3 methodology and mathematical proof."
-              value={reviewMessage}
-              onChange={(e) => setReviewMessage(e.target.value)}
-              className="w-full border border-line rounded px-2.5 py-1.5 text-xs outline-none focus:border-primary dark:bg-darkCard dark:border-darkLine dark:text-white"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowRequestDrawer(false)}
-              className="h-8 text-xs px-3"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={requestSending}
-              className="h-8 text-xs px-4 font-bold bg-primary text-white hover:bg-primaryDark"
-            >
-              {requestSending ? 'Sending Request...' : 'Send Request'}
-            </Button>
-          </div>
-        </form>
-      )}
-      
-      {/* Submit Review */}
-      <form onSubmit={handleSubmit} className="mb-8 border-b border-line dark:border-darkLine pb-8">
-        <h4 className="text-[15px] font-bold mb-3 text-ink dark:text-white">Write a Review</h4>
-        <div className="flex gap-4 mb-4 items-center">
-          <span className="text-sm font-semibold">Rating:</span>
-          <select 
-            value={rating} 
-            onChange={e => setRating(Number(e.target.value))}
-            className="border border-line rounded p-1 dark:bg-darkPanel dark:border-darkLine dark:text-white outline-none"
-          >
-            {[5,4,3,2,1].map(num => <option key={num} value={num}>{num} Stars</option>)}
-          </select>
-        </div>
-        <textarea
-          value={comment}
-          onChange={e => setComment(e.target.value)}
-          placeholder="What are your thoughts on this paper?"
-          className="w-full border border-line rounded p-3 text-sm min-h-[100px] outline-none focus:border-primary dark:bg-darkPanel dark:border-darkLine dark:text-white"
-        />
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-sm text-primary font-medium">{status}</span>
-          <Button type="submit" disabled={submitting || !comment.trim()} className="bg-primary hover:bg-primaryDark text-white h-9 px-4 font-bold text-sm">
-            {submitting ? 'Submitting...' : 'Submit Review'}
-          </Button>
-        </div>
-      </form>
-
-      <CodeReproducibilityCard />
-      <CoiAuditBadge />
-      <ReferenceIntegrityCard />
-      <ReviewerScoringMatrix />
-
-      {/* List Reviews */}
-      <div className="space-y-6">
-        {loading ? (
-          <div className="text-sm text-slate-500">Loading reviews...</div>
-        ) : reviews.length === 0 ? (
-          <div className="text-sm text-slate-500 text-center py-6">No reviews yet. Be the first to review this paper!</div>
-        ) : (
-          reviews.map((r, i) => (
-            <div key={i} className="flex gap-4 items-start">
-              <div className="w-10 h-10 rounded-full bg-slate-200 shrink-0 overflow-hidden dark:bg-slate-700">
-                <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${r.reviewer_name || 'U'}`} alt="avatar" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-[14px] text-ink dark:text-white hover:underline cursor-pointer">{r.reviewer_name}</span>
-                    <span className="text-xs text-slate-500">
-                      &bull; {new Date(r.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowRebuttalFor(i)}
-                    className="text-xs font-bold text-primary hover:underline"
-                  >
-                    Reply / Rebuttal
-                  </button>
-                </div>
-                <div className="text-xs text-yellow-500 font-bold mb-2">
-                  {'★'.repeat(r.rating || 5)}{'☆'.repeat(5 - (r.rating || 5))}
-                </div>
-                <p className="text-[14px] text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{r.comment_text}</p>
-                <ReviewRebuttalModal
-                  reviewerName={r.reviewer_name || 'Verified Reviewer'}
-                  isOpen={showRebuttalFor === i}
-                  onClose={() => setShowRebuttalFor(null)}
-                />
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PaperDetail({ paperId }: { paperId?: string }) {
-  const [activeTab, setActiveTab] = useState('Overview');
-  const [status, setStatus] = useState('');
-  const [paper, setPaper] = useState<PaperSummary | null>(null);
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
-  const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
-  const [showReviewMarketplace, setShowReviewMarketplace] = useState(false);
-
-  function copyCitationFormat(fmt: 'bibtex' | 'apa' | 'ris') {
-    if (!paper) return;
-    const authorNames = (paper.authors || []).map(a => a.name || a.full_name).join(', ') || 'Anonymous Author';
-    const year = paper.publication_date ? new Date(paper.publication_date).getFullYear() : 2026;
-    
-    let formattedText = '';
-    if (fmt === 'bibtex') {
-      formattedText = `@article{paper_${paper.paper_id},\n  title={${paper.title}},\n  author={${authorNames}},\n  journal={${paper.journal_name || 'ResearchHub Repository'}},\n  year={${year}}\n}`;
-    } else if (fmt === 'apa') {
-      formattedText = `${authorNames} (${year}). ${paper.title}. ${paper.journal_name || 'ResearchHub Repository'}.`;
-    } else if (fmt === 'ris') {
-      formattedText = `TY  - JOUR\nTI  - ${paper.title}\nAU  - ${authorNames}\nJO  - ${paper.journal_name || 'ResearchHub Repository'}\nPY  - ${year}\nER  -`;
-    }
-
-    navigator.clipboard.writeText(formattedText);
-    setCopiedFormat(fmt);
-    setTimeout(() => setCopiedFormat(null), 2000);
-  }
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight > 0) {
-        setScrollProgress(Math.min(100, Math.max(0, (window.scrollY / totalHeight) * 100)));
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    if (!paperId) return;
-    (async () => {
-      try {
-        const result = await authFetch(`/api/v1/papers/${paperId}`) as { data?: PaperSummary };
-        if (result.data) setPaper(result.data);
-      } catch {}
-    })();
-  }, [paperId]);
-
-  const handleAction = (message: string) => {
-    setStatus(message);
-    setTimeout(() => setStatus(''), 3000);
-  };
-
-  async function downloadPaper() {
-    if (!paper) return;
-    const file = paper.files?.[0];
-    if (file?.file_id) {
-      window.open(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/v1/uploads/${file.file_id}`, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    if (paper.pdf_url) {
-      window.open(paper.pdf_url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    handleAction('No full-text file is available for this paper');
-  }
-
-  async function recommend() {
-    if (!paper) return;
-    try {
-      await recommendPaper(paper.paper_id);
-      handleAction('Paper recommended');
-    } catch (error) {
-      handleAction(error instanceof Error ? error.message : 'Sign in to recommend this paper');
-    }
-  }
-
-  async function save() {
-    if (!paper) return;
-    try {
-      await savePaper(paper.paper_id);
-      handleAction('Paper saved to your library');
-    } catch (error) {
-      handleAction(error instanceof Error ? error.message : 'Sign in to save this paper');
-    }
-  }
-
-  return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-darkBg pb-20">
-      {/* Top Reading Scroll Progress Indicator */}
-      <div className="fixed top-0 left-0 right-0 h-1 bg-slate-200 dark:bg-slate-800 z-50">
-        <div
-          className="h-full bg-primary transition-all duration-150"
-          style={{ width: `${scrollProgress}%` }}
-        />
-      </div>
-
-      {!paper ? (
-        <div className="p-20 text-center text-slate-500">Loading paper details...</div>
-      ) : (
-        <>
-      {/* Top Header Area - White */}
-      <div className="bg-white dark:bg-darkCard border-b border-line dark:border-darkLine">
-        <div className="max-w-[1200px] mx-auto px-4 py-6">
-          <div className="flex flex-col lg:flex-row gap-8 justify-between">
-            {/* Main Info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="bg-[#e4f3f1] text-[#007062] text-xs font-semibold px-2 py-0.5 rounded dark:bg-[#1a3835] dark:text-[#20c5b3]">{paper.publication_type || 'Article'}</span>
-                {paper.files?.length || paper.pdf_url ? <span className="border border-[#007062] text-[#007062] text-xs font-semibold px-2 py-0.5 rounded dark:border-[#20c5b3] dark:text-[#20c5b3]">Full-text available</span> : null}
-              </div>
-              <h1 className="text-[28px] font-bold text-ink dark:text-darkInk mb-3 leading-tight">{paper.title}</h1>
-              
-              <div className="text-[15px] text-slate-600 dark:text-slate-400 mb-3 space-y-1">
-                <div>{paper.publication_date ? new Date(paper.publication_date).toLocaleDateString() : 'Date unavailable'} &middot; {paper.journal_name || 'Journal not listed'}</div>
-                {paper.doi && <div>DOI: <span className="hover:underline cursor-pointer">{paper.doi}</span></div>}
-                <div>License &middot; <span className="hover:underline cursor-pointer">CC BY-NC 4.0</span></div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4 mt-6">
-                {(paper.authors || []).map(author => (
-                  <div key={author.author_id} className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden dark:bg-darkLine">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${author.name}`} alt={author.name} className="w-full h-full object-cover" />
-                    </div>
-                    <Link href={author.claimed_profile_slug ? `/researchers/${author.claimed_profile_slug}` : `/authors/${author.author_id}`} className="text-[15px] text-primary hover:underline cursor-pointer font-medium">{author.full_name || author.name}</Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Metrics Panel */}
-            <div className="w-full lg:w-[350px]">
-              <div className="space-y-3 text-[14px]">
-                <div className="flex items-end">
-                  <span className="text-slate-600 dark:text-slate-400">Est. Reading Time</span>
-                  <div className="flex-1 border-b border-dotted border-slate-300 dark:border-slate-600 mx-2 mb-1"></div>
-                  <span className="font-bold text-primary font-mono">{Math.max(4, Math.round(((paper.abstract?.trim().split(/\s+/).length || 200) * 15) / 220))} min read</span>
-                </div>
-                <div className="flex items-end">
-                  <span className="text-slate-600 dark:text-slate-400">Est. Word Count</span>
-                  <div className="flex-1 border-b border-dotted border-slate-300 dark:border-slate-600 mx-2 mb-1"></div>
-                  <span className="font-medium text-ink dark:text-darkInk">{((paper.abstract?.trim().split(/\s+/).length || 200) * 15).toLocaleString()} words</span>
-                </div>
-                <div className="flex items-end">
-                  <span className="text-slate-600 dark:text-slate-400">Publication status</span>
-                  <div className="flex-1 border-b border-dotted border-slate-300 dark:border-slate-600 mx-2 mb-1"></div>
-                  <span className="font-medium text-ink dark:text-darkInk">{paper.status || 'published'}</span>
-                </div>
-                <div className="flex items-end">
-                  <span className="text-slate-600 dark:text-slate-400">Citations</span>
-                  <div className="flex-1 border-b border-dotted border-slate-300 dark:border-slate-600 mx-2 mb-1"></div>
-                  <span className="font-medium text-ink dark:text-darkInk">{paper.citation_count || 0}</span>
-                </div>
-                <div className="flex items-end">
-                  <span className="text-slate-600 dark:text-slate-400">Recommendations</span>
-                  <div className="flex-1 border-b border-dotted border-slate-300 dark:border-slate-600 mx-2 mb-1"></div>
-                  <span className="font-medium text-ink dark:text-darkInk">{(paper as PaperSummary & { recommendation_count?: number }).recommendation_count || 0}</span>
-                </div>
-                <div className="flex items-end">
-                  <span className="text-slate-600 dark:text-slate-400">Reads</span>
-                  <div className="flex-1 border-b border-dotted border-slate-300 dark:border-slate-600 mx-2 mb-1"></div>
-                  <span className="font-medium text-ink dark:text-darkInk">{paper.view_count || 0}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Tabs & Actions */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mt-10 border-t border-line dark:border-darkLine pt-2 gap-4">
-            <div className="flex space-x-6">
-              {['Overview', 'Reviews', 'Stats', 'Citations', 'References'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={clsx(
-                    'py-4 text-[15px] font-semibold transition relative',
-                    activeTab === tab
-                      ? 'text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary'
-                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-                  )}
-                >
-                  {tab} {tab === 'Citations' ? `(${paper.citation_count || 0})` : ''}
-                </button>
-              ))}
-            </div>
-            
-            <div className="flex items-center gap-3 pb-2 md:pb-0">
-              <Button onClick={() => setShowPdfViewer(true)} className="bg-primary hover:bg-primaryDark text-white px-5 font-bold h-9 rounded-full text-sm">
-                Read PDF
-              </Button>
-              <Button onClick={downloadPaper} variant="outline" className="border-primary text-primary hover:bg-primary/5 px-4 font-bold h-9 rounded-full text-sm">
-                Download
-              </Button>
-              <Button onClick={() => {
-                if (navigator.share) {
-                  navigator.share({ title: document.title, url: window.location.href }).catch(() => {});
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert('Link copied to clipboard!');
-                }
-              }} variant="ghost" className="font-bold h-9 rounded-full px-4 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
-                Share <span className="ml-1 text-[10px]">▼</span>
-              </Button>
-              <Button onClick={save} variant="ghost" className="font-bold h-9 rounded-full px-4 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Save</Button>
-              
-              {/* Quick Citation Copy Buttons */}
-              <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-700">
-                <span className="text-xs font-bold text-slate-500 mr-1">Cite:</span>
-                <button
-                  type="button"
-                  onClick={() => copyCitationFormat('bibtex')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded transition ${copiedFormat === 'bibtex' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-darkPanel text-slate-700 dark:text-slate-300 hover:bg-primary/20'}`}
-                >
-                  {copiedFormat === 'bibtex' ? '✓ BibTeX' : 'BibTeX'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copyCitationFormat('apa')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded transition ${copiedFormat === 'apa' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-darkPanel text-slate-700 dark:text-slate-300 hover:bg-primary/20'}`}
-                >
-                  {copiedFormat === 'apa' ? '✓ APA' : 'APA'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copyCitationFormat('ris')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded transition ${copiedFormat === 'ris' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-darkPanel text-slate-700 dark:text-slate-300 hover:bg-primary/20'}`}
-                >
-                  {copiedFormat === 'ris' ? '✓ RIS' : 'RIS'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showPdfViewer && paper && (
-        <PaperPdfViewer
-          paperTitle={paper.title}
-          pdfUrl={paper.pdf_url || (paper.files?.[0]?.file_id ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/v1/uploads/${paper.files[0].file_id}` : undefined)}
-          onClose={() => setShowPdfViewer(false)}
-        />
-      )}
-
-      {/* Content Area */}
-      <div className="max-w-[1200px] mx-auto px-4 py-8">
-        {status && (
-          <div className="mb-4 p-3 bg-primary/10 text-primary rounded text-sm font-semibold text-center">
-            {status}
-          </div>
-        )}
-
-        {activeTab === 'Overview' && (
-          <div className="space-y-6 lg:w-2/3">
-            <VirtualPosterHub />
-            <JournalImpactDirectory />
-            <div className="bg-white border border-line rounded-sm shadow-sm dark:bg-darkCard dark:border-darkLine p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-medium text-ink dark:text-darkInk">Abstract</h3>
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-darkPanel p-0.5 rounded border border-line dark:border-darkLine">
-                  <span className="text-[11px] font-bold text-slate-500 px-1.5">Text Size:</span>
-                  <button
-                    type="button"
-                    onClick={() => setFontSize('sm')}
-                    className={`px-2 py-0.5 text-xs font-bold rounded transition ${fontSize === 'sm' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-400 hover:text-ink'}`}
-                  >
-                    A-
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFontSize('base')}
-                    className={`px-2 py-0.5 text-xs font-bold rounded transition ${fontSize === 'base' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-400 hover:text-ink'}`}
-                  >
-                    A
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFontSize('lg')}
-                    className={`px-2 py-0.5 text-xs font-bold rounded transition ${fontSize === 'lg' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-400 hover:text-ink'}`}
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-              <p className={`text-slate-700 dark:text-slate-300 transition-all ${
-                fontSize === 'sm' ? 'text-[13px] leading-[1.6]' : fontSize === 'lg' ? 'text-[17px] leading-[1.8]' : 'text-[15px] leading-[1.7]'
-              }`}>
-                {paper.abstract || 'No abstract has been provided for this paper.'}
-              </p>
-            </div>
-
-            <PaperAudioPlayer paperTitle={paper.title} />
-
-            <PaperAiSummary paperTitle={paper.title} abstract={paper.abstract} />
-
-            <PaperKeywordCloud
-              paperTitle={paper.title}
-              abstract={paper.abstract}
-              category={paper.publication_type}
-            />
-
-            <CitationTreeVisualizer paperTitle={paper.title} />
-
-            <CitationForecaster paperTitle={paper.title} />
-
-            <PaperAltmetricBadge
-              paperId={paper.paper_id}
-              citationsCount={paper.citation_count}
-            />
-          </div>
-        )}
-
-        {activeTab === 'Reviews' && paperId && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded border border-line dark:bg-darkCard dark:border-darkLine">
-              <div>
-                <h4 className="font-bold text-sm text-ink dark:text-white">Need a verified peer review for this manuscript?</h4>
-                <p className="text-xs text-slate-500">Broadcast a review request with bounty credits to verified double-blind reviewers.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowReviewMarketplace(true)}
-                className="px-3.5 py-1.5 bg-primary text-white rounded text-xs font-bold hover:bg-primaryDark transition shrink-0"
-              >
-                + Request Peer Review Bounty
-              </button>
-            </div>
-            <ReviewRigorRadar paperTitle={paper.title} />
-            <PaperReviews paperId={paperId} />
-          </div>
-        )}
-
-        {activeTab === 'Citations' && (
-          <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-            <div className="space-y-6">
-              <h3 className="text-[17px] font-medium text-ink dark:text-darkInk border-b border-line dark:border-darkLine pb-3">Citation record ({paper.citation_count || 0})</h3>
-              <div className="p-4 text-center text-slate-500">Citation count is available from the indexed paper record.</div>
-            </div>
-            
-            <aside>
-              <div className="bg-slate-50 border border-line rounded-sm dark:bg-darkCard dark:border-darkLine p-5">
-                <h3 className="text-[17px] font-medium text-ink dark:text-darkInk border-b border-line dark:border-darkLine pb-3 mb-4">Top citing researchers</h3>
-                <div className="p-4 text-center text-sm text-slate-500">No data available.</div>
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {(activeTab === 'Stats' || activeTab === 'References') && (
-          <div className="space-y-6 lg:w-2/3">
-            <div className="bg-white border border-line rounded-sm shadow-sm dark:bg-darkCard dark:border-darkLine p-6">
-              <h3 className="text-xl font-medium text-ink dark:text-darkInk mb-6">{activeTab}</h3>
-              {activeTab === 'Stats' ? <div className="grid gap-3 sm:grid-cols-3"><Metric value={String(paper.view_count || 0)} label="Reads" /><Metric value={String(paper.download_count || 0)} label="Downloads" /><Metric value={String(paper.citation_count || 0)} label="Citations" /></div> : <div className="flex flex-wrap gap-2">{((paper as PaperSummary & { keywords?: Array<{ keyword?: string; name?: string }>; fields?: Array<{ field_name?: string; name?: string }> }).keywords || []).map(item => <span key={item.keyword || item.name} className="rounded-full bg-primarySoft px-3 py-1 text-sm font-semibold text-primary">{item.keyword || item.name}</span>)}{!((paper as PaperSummary & { keywords?: unknown[] }).keywords || []).length ? <p className="text-slate-500 text-[15px]">No reference metadata has been indexed.</p> : null}</div>}
-            </div>
-
-            {activeTab === 'Stats' && (
-              <CitationVelocityChart
-                paperTitle={paper.title}
-                totalCitations={paper.citation_count}
-                totalReads={paper.view_count}
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:bg-[#1a1b1e] dark:border-slate-800 z-40">
-        <div className="max-w-[1200px] mx-auto px-4 h-16 flex flex-wrap items-center gap-4 sm:gap-8">
-          <button onClick={recommend} className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-full bg-slate-100 group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700 flex items-center justify-center transition">
-              <Plus size={20} className="text-slate-600 dark:text-slate-300" />
-            </div>
-            <div className="hidden sm:flex flex-col items-start">
-              <span className="font-bold text-[14px] text-ink dark:text-darkInk leading-tight">Recommend</span>
-              <span className="text-[12px] text-slate-500 leading-tight">Recommend this work</span>
-            </div>
-          </button>
-          
-          <button onClick={() => paper?.authors?.[0] ? followAuthor(paper.authors[0].author_id).then(() => handleAction('Following author')).catch(error => handleAction(error instanceof Error ? error.message : 'Sign in to follow this author')) : handleAction('No author profile is linked')} className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-full bg-slate-100 group-hover:bg-slate-200 dark:bg-slate-800 dark:group-hover:bg-slate-700 flex items-center justify-center transition">
-              <BookOpen size={18} className="text-slate-600 dark:text-slate-300" />
-            </div>
-            <div className="hidden sm:flex flex-col items-start">
-              <span className="font-bold text-[14px] text-ink dark:text-darkInk leading-tight">Follow</span>
-              <span className="text-[12px] text-slate-500 leading-tight">Get updates</span>
-            </div>
-          </button>
-          
-          <button onClick={() => {
-            if (navigator.share) {
-              navigator.share({ title: document.title, url: window.location.href }).catch(() => {});
-            } else {
-              navigator.clipboard.writeText(window.location.href);
-              alert('Link copied to clipboard!');
-            }
-          }} className="flex items-center gap-3 group">
-            <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-primary/10 transition dark:bg-darkPanel">
-              <Share2 size={18} className="text-slate-600 dark:text-slate-300" />
-            </div>
-            <div className="hidden sm:flex flex-col text-left">
-              <span className="font-bold text-[14px] text-ink dark:text-darkInk leading-tight">Share</span>
-              <span className="text-[12px] text-slate-500 leading-tight">Share in a message</span>
-            </div>
-          </button>
-        </div>
-      </div>
-      </>
-      )}
-      <ReviewMarketplaceModal
-        paperTitle={paper?.title || ''}
-        isOpen={showReviewMarketplace}
-        onClose={() => setShowReviewMarketplace(false)}
-      />
-    </div>
-  );
-}
 function AnalyticsView() {
   const [stats, setStats] = useState({ total_reads: 0, rg_score: 0, full_text_requests: 0, citations: 0 });
 
@@ -2057,7 +1210,7 @@ function AnalyticsView() {
     <div className="grid gap-5 md:grid-cols-3">
       {[
         ['Total Reads', stats.total_reads.toString(), 'Across all publications'],
-        ['RG Score', stats.rg_score.toString(), 'Current ResearchGate Score'],
+        ['Community activity', stats.rg_score.toString(), 'ResearchHub activity score'],
         ['Full-Text Requests', stats.full_text_requests.toString(), 'Pending or completed requests']
       ].map(([label, value, detail]) => (
         <section key={label} className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard">
@@ -2066,12 +1219,7 @@ function AnalyticsView() {
           <p className="mt-2 text-sm text-muted dark:text-darkMuted">{detail}</p>
         </section>
       ))}
-      <section className="rounded-soft border border-line bg-paper p-6 shadow-stitch dark:border-darkLine dark:bg-darkCard md:col-span-3">
-        <div className="grid h-72 place-items-end gap-3 border-b border-line px-4 dark:border-darkLine md:grid-cols-8">
-          {/* Simple mock chart for now */}
-          {[44, 72, 58, 86, 64, 92, 78, Math.max(10, Math.min(100, stats.rg_score))].map((height, index) => <div key={index} className="w-full rounded-t-lg bg-primary/80 transition-all duration-1000" style={{ height: `${height}%` }} />)}
-        </div>
-      </section>
+
     </div>
   );
 }
@@ -2104,11 +1252,12 @@ function CollectionsView() {
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await createCollection(String(form.get('name') || 'New Collection'), String(form.get('description') || ''));
       setStatus('Collection created');
-      event.currentTarget.reset();
+      formElement.reset();
       loadCollections();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Unable to create collection');
@@ -2120,7 +1269,7 @@ function CollectionsView() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSelectedCollection(null)} className="text-muted hover:text-primary"><ArrowLeft size={20} /></button>
+            <button onClick={() => setSelectedCollection(null)} aria-label="Back to collections" className="text-muted hover:text-primary"><ArrowLeft size={20} /></button>
             <h2 className="text-2xl font-black">{selectedCollection}</h2>
           </div>
           <span className="text-sm font-bold text-muted">{papers.length} papers</span>
@@ -2140,8 +1289,8 @@ function CollectionsView() {
     <div className="space-y-6">
       <form className="rounded-soft border border-line bg-paper p-5 shadow-stitch dark:border-darkLine dark:bg-darkCard" onSubmit={create}>
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <input name="name" className="rounded-lg border border-line bg-slate-50 px-3 py-2 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Collection name" />
-          <input name="description" className="rounded-lg border border-line bg-slate-50 px-3 py-2 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Description" />
+          <input name="name" aria-label="Collection name" required maxLength={100} className="rounded-lg border border-line bg-slate-50 px-3 py-2 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Collection name" />
+          <input name="description" aria-label="Collection description" maxLength={1000} className="rounded-lg border border-line bg-slate-50 px-3 py-2 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Description" />
           <Button type="submit"><Plus size={16} /> Create</Button>
         </div>
         {status && <p className="mt-3 text-sm font-bold text-primary">{status}</p>}
@@ -2228,7 +1377,8 @@ function RequestsView() {
 
   async function sendRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await createResearchRequest({
         title: String(form.get('title') || ''),
@@ -2237,7 +1387,7 @@ function RequestsView() {
         message: String(form.get('message') || '')
       });
       setStatus('Request sent successfully');
-      event.currentTarget.reset();
+      formElement.reset();
       loadRequests();
       setActiveTab('sent');
     } catch (error) {
@@ -2301,7 +1451,7 @@ function RequestsView() {
               
               {req.status === 'pending' && (
                 <div className="mt-4 flex gap-3">
-                  <Button type="button" onClick={() => handleStatusUpdate(req.request_id, 'approved')} className="bg-green-600 hover:bg-green-700">Approve & Send PDF</Button>
+                  <Button type="button" onClick={() => handleStatusUpdate(req.request_id, 'approved')} className="bg-green-600 hover:bg-green-700">Approve request</Button>
                   <Button type="button" onClick={() => handleStatusUpdate(req.request_id, 'declined')} variant="secondary">Decline</Button>
                 </div>
               )}
@@ -2313,94 +1463,25 @@ function RequestsView() {
   );
 }
 
-function AuthPanel({ kind }: { kind: 'login' | 'signup' }) {
-  const router = useRouter();
-  const [status, setStatus] = useState('');
-  const [forgot, setForgot] = useState(false);
-
-  async function handleForgot(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    try {
-      await forgotPassword(String(form.get('email') || ''));
-      setStatus('If that email exists, reset instructions have been sent.');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Unable to request a password reset');
-    }
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const username = String(form.get('username') || '');
-    const password = String(form.get('password') || '');
-    const fullName = String(form.get('full_name') || username);
-    try {
-      if (kind === 'login') {
-        await login(username, password);
-        router.replace('/feed');
-      } else {
-        await register({ username, email: String(form.get('email') || ''), password, full_name: fullName });
-        router.replace('/feed');
-      }
-      setStatus(kind === 'login' ? 'Signed in' : 'Account created');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Authentication failed');
-    }
-  }
-
-  return (
-    <div className="mx-auto max-w-xl rounded-soft border border-line bg-paper p-8 shadow-glow dark:border-darkLine dark:bg-darkCard">
-      {forgot ? (
-        <form className="space-y-4" onSubmit={handleForgot}>
-          <h2 className="text-xl font-black">Reset your password</h2>
-          <input name="email" type="email" required className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Account email" />
-          <Button className="w-full" type="submit">Send reset link</Button>
-          <button type="button" className="text-sm font-bold text-primary" onClick={() => setForgot(false)}>Back to sign in</button>
-          {status ? <p className="text-sm font-bold text-primary" role="status">{status}</p> : null}
-        </form>
-      ) : (
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          {kind === 'signup' ? <input name="full_name" required className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Full name" /> : null}
-          {kind === 'signup' ? <input name="email" type="email" required className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Email address" /> : null}
-          <input name="username" required className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Username or email" />
-          <input name="password" required minLength={8} type="password" className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" placeholder="Password" />
-          <Button className="w-full" type="submit">{kind === 'login' ? <Lock size={16} /> : <UserPlus size={16} />}{kind === 'login' ? 'Sign in' : 'Create account'}</Button>
-          {kind === 'login' ? <button type="button" className="text-sm font-bold text-primary" onClick={() => setForgot(true)}>Forgot password?</button> : null}
-          {kind === 'login' ? (
-            <p className="mt-4 text-center text-sm text-slate-500">
-              Don't have an account? <Link href="/signup" className="font-bold text-primary hover:underline">Sign up</Link>
-            </p>
-          ) : (
-            <p className="mt-4 text-center text-sm text-slate-500">
-              Already have an account? <Link href="/login" className="font-bold text-primary hover:underline">Sign in</Link>
-            </p>
-          )}
-          {status ? <p className="text-sm font-bold text-primary" role="status">{status}</p> : null}
-        </form>
-      )}
-    </div>
-  );
-}
-
-
 function CitationPanel() {
   const [paperId, setPaperId] = useState(1);
   const [format, setFormat] = useState<'bib' | 'txt'>('bib');
   const [citation, setCitation] = useState('');
   const [showBatchExport, setShowBatchExport] = useState(false);
   const [showBibtexCleaner, setShowBibtexCleaner] = useState(false);
+  const [citationError, setCitationError] = useState('');
 
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
       const result = await exportCitation(paperId, format);
-      const text = result?.data?.citation || result?.citation || `ResearchHub Citation for Paper ${paperId}.`;
+      const text = result?.data?.content || result?.data?.citation || result?.citation;
+      if (!text) throw new Error('Citation unavailable for this record.');
+      setCitationError('');
       setCitation(text);
       await navigator.clipboard.writeText(text);
-    } catch {
-      const text = `ResearchHub Citation for Paper ${paperId}.`;
-      setCitation(text);
+    } catch (error) {
+      setCitationError(error instanceof Error ? error.message : 'Unable to export citation.');
     }
   }
 
@@ -2432,6 +1513,7 @@ function CitationPanel() {
         </select>
         <Button type="submit"><Quote size={16} /> Export</Button>
       </form>
+      {citationError ? <p role="alert" className="rh-form-error">{citationError}</p> : null}
       <pre className="mt-5 overflow-auto rounded-lg bg-slate-950 p-4 text-sm leading-6 text-blue-100">{citation || 'Citation output will appear here and copy to clipboard.'}</pre>
       <LibraryExportWidget />
       <BatchCitationExportModal isOpen={showBatchExport} onClose={() => setShowBatchExport(false)} />
@@ -2896,108 +1978,6 @@ export function JobsView() {
 type ThemeChoice = 'light' | 'dark' | 'system';
 const tabs = [['Appearance', Palette], ['Notifications', Bell], ['Privacy', Lock]] as const;
 
-export function SettingsView({ compact = false }: { compact?: boolean }) {
-  const [theme, setTheme] = useState<ThemeChoice>('system');
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>('Appearance');
-  const [status, setStatus] = useState('');
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem('researchhub_theme') as ThemeChoice | null;
-    const initial = stored || 'system';
-    setTheme(initial);
-    getSettings()
-      .then(result => {
-        const nextTheme = result?.data?.theme as ThemeChoice | undefined;
-        if (nextTheme) {
-          setTheme(nextTheme);
-          window.localStorage.setItem('researchhub_theme', nextTheme);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
-  async function chooseTheme(nextTheme: ThemeChoice) {
-    setTheme(nextTheme);
-    window.localStorage.setItem('researchhub_theme', nextTheme);
-    try {
-      await updateSettings({ theme: nextTheme, email_notifications: true, paper_recommendations: true, profile_visibility: 'public' });
-      setStatus('Settings saved');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Unable to save settings');
-    }
-  }
-
-  async function savePreferences(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    try {
-      await updateSettings({
-        theme,
-        email_notifications: form.get('email_notifications') === 'on',
-        paper_recommendations: form.get('paper_recommendations') === 'on',
-        profile_visibility: String(form.get('profile_visibility') || 'public')
-      });
-      setStatus('Preferences updated');
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Unable to save preferences');
-    }
-  }
-
-  return (
-    <section className={clsx('rounded-soft border border-line bg-paper shadow-stitch dark:border-darkLine dark:bg-darkCard', compact ? 'p-5' : 'p-6')}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className={clsx('font-black text-ink dark:text-darkInk', compact ? 'text-lg' : 'text-2xl')}>Settings</h2>
-          <p className="mt-1 text-sm leading-6 text-muted dark:text-darkMuted">Appearance, alerts, privacy, and library preferences.</p>
-        </div>
-      </div>
-      {!compact ? (
-        <div className="mt-6 grid gap-2 sm:grid-cols-3">
-          {tabs.map(([label, Icon]) => (
-            <button key={label as string} className={clsx('flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition', activeTab === label ? 'border-primary bg-primary text-white' : 'border-line text-muted hover:border-primary hover:text-primary dark:border-darkLine dark:text-darkMuted')} type="button" onClick={() => setActiveTab(label as any)}>
-              <Icon size={17} />{label as string}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <form className="mt-5 space-y-5" onSubmit={savePreferences}>
-        {(activeTab === 'Appearance' || compact) ? (
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-muted dark:text-darkMuted">Theme</p>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {(['light', 'dark', 'system'] as const).map(option => (
-                <button key={option} type="button" className={clsx('rounded-lg border px-3 py-2 text-sm font-bold capitalize transition', theme === option ? 'border-primary bg-primary text-white' : 'border-line bg-slate-50 text-muted hover:text-primary dark:border-darkLine dark:bg-darkPanel dark:text-darkMuted')} onClick={() => chooseTheme(option)}>
-                  {option === 'dark' ? <Moon className="mx-auto mb-1 size-4" /> : <Sun className="mx-auto mb-1 size-4" />}
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {(activeTab === 'Notifications' || compact) ? (
-          <div className="space-y-3">
-            <label className="flex items-center justify-between gap-4 rounded-lg border border-line px-4 py-3 text-sm font-semibold dark:border-darkLine">
-              Email notifications <input name="email_notifications" type="checkbox" defaultChecked className="size-4 accent-primary" />
-            </label>
-            <label className="flex items-center justify-between gap-4 rounded-lg border border-line px-4 py-3 text-sm font-semibold dark:border-darkLine">
-              Paper recommendations <input name="paper_recommendations" type="checkbox" defaultChecked className="size-4 accent-primary" />
-            </label>
-          </div>
-        ) : null}
-        {activeTab === 'Privacy' ? (
-          <label className="block">
-            <span className="text-xs font-black uppercase tracking-widest text-muted dark:text-darkMuted">Profile visibility</span>
-            <select name="profile_visibility" className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm font-semibold outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel">
-              <option value="public">Public</option><option value="followers">Followers only</option><option value="private">Private</option>
-            </select>
-          </label>
-        ) : null}
-        {!compact ? <Button type="submit">Save preferences</Button> : null}
-        {status ? <p className="text-sm font-bold text-primary">{status}</p> : null}
-      </form>
-    </section>
-  );
-}
 
 
 const RESEARCH_TYPES = [
@@ -3181,16 +2161,16 @@ export function SubmitView() {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="mb-2 text-2xl font-bold dark:text-white">Research details</h2>
             <div className="grid gap-6">
-              <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">Title</label><input value={title} onChange={e => setTitle(e.target.value)} className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
-              <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">Abstract</label><textarea value={abstract} onChange={e => setAbstract(e.target.value)} className="min-h-32 w-full rounded-lg border border-line bg-slate-50 p-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
-              <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">Authors</label><textarea value={authorsText} onChange={e => setAuthorsText(e.target.value)} placeholder="One author per line" className="min-h-24 w-full rounded-lg border border-line bg-slate-50 p-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
+              <div><label htmlFor="publication-title" className="mb-2 block text-sm font-bold dark:text-slate-200">Title</label><input id="publication-title" value={title} onChange={e => setTitle(e.target.value)} className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
+              <div><label htmlFor="publication-abstract" className="mb-2 block text-sm font-bold dark:text-slate-200">Abstract</label><textarea id="publication-abstract" value={abstract} onChange={e => setAbstract(e.target.value)} className="min-h-32 w-full rounded-lg border border-line bg-slate-50 p-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
+              <div><label htmlFor="publication-authors" className="mb-2 block text-sm font-bold dark:text-slate-200">Authors</label><textarea id="publication-authors" value={authorsText} onChange={e => setAuthorsText(e.target.value)} placeholder="One author per line" className="min-h-24 w-full rounded-lg border border-line bg-slate-50 p-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
               <div className="grid gap-6 md:grid-cols-2">
-                <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">DOI (Optional)</label><input value={doi} onChange={e => setDoi(e.target.value)} className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
-                <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">Publication Date</label><input value={date} onChange={e => setDate(e.target.value)} type="date" className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
+                <div><label htmlFor="publication-doi" className="mb-2 block text-sm font-bold dark:text-slate-200">DOI (Optional)</label><input id="publication-doi" value={doi} onChange={e => setDoi(e.target.value)} className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
+                <div><label htmlFor="publication-date" className="mb-2 block text-sm font-bold dark:text-slate-200">Publication Date</label><input id="publication-date" value={date} onChange={e => setDate(e.target.value)} type="date" className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel" /></div>
               </div>
               <div className="grid gap-6 md:grid-cols-2">
-                <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">Language</label><select value={language} onChange={e => setLanguage(e.target.value)} className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel"><option>English</option></select></div>
-                <div><label className="mb-2 block text-sm font-bold dark:text-slate-200">Peer Reviewed?</label><div className="flex h-12 items-center gap-3 rounded-lg border border-line bg-slate-50 px-3 dark:border-darkLine dark:bg-darkPanel"><input type="checkbox" checked={isPeerReviewed} onChange={e => setIsPeerReviewed(e.target.checked)} className="h-5 w-5 accent-primary" /><span className="text-sm dark:text-slate-200">Yes</span></div></div>
+                <div><label htmlFor="publication-language" className="mb-2 block text-sm font-bold dark:text-slate-200">Language</label><select id="publication-language" value={language} onChange={e => setLanguage(e.target.value)} className="h-12 w-full rounded-lg border border-line bg-slate-50 px-3 outline-none focus:border-primary dark:border-darkLine dark:bg-darkPanel"><option>English</option></select></div>
+                <div><label htmlFor="publication-reviewed" className="mb-2 block text-sm font-bold dark:text-slate-200">Peer reviewed?</label><div className="flex h-12 items-center gap-3 rounded-lg border border-line bg-slate-50 px-3 dark:border-darkLine dark:bg-darkPanel"><input id="publication-reviewed" type="checkbox" checked={isPeerReviewed} onChange={e => setIsPeerReviewed(e.target.checked)} className="h-5 w-5 accent-primary" /><span className="text-sm dark:text-slate-200">Yes</span></div></div>
               </div>
               <div className="rounded-xl border border-line bg-slate-50 p-5 dark:border-darkLine dark:bg-darkPanel">
                 <h3 className="mb-3 font-bold dark:text-white">Visibility</h3>

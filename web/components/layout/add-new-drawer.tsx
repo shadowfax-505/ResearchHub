@@ -29,14 +29,21 @@ export function AddNewDrawer() {
 
       {/* Drawer */}
       <div
+        inert={!isOpen}
+        aria-hidden={!isOpen}
+        role="dialog"
+        aria-modal={isOpen || undefined}
+        aria-label="Add research"
+        onKeyDown={event => { if (event.key === 'Escape') setIsOpen(false); }}
         className={clsx(
-          'fixed inset-y-0 right-0 z-[110] w-[400px] transform bg-white shadow-2xl transition-transform duration-300 ease-in-out dark:bg-darkCard',
+          'fixed inset-y-0 right-0 z-[110] w-[min(400px,100vw)] transform bg-white shadow-2xl transition-transform duration-300 ease-in-out dark:bg-darkCard',
           isOpen ? 'translate-x-0' : 'translate-x-full'
         )}
       >
         <div className="flex h-14 items-center justify-between border-b border-line px-6 dark:border-darkLine">
           <h2 className="text-lg font-bold text-ink dark:text-white">Add research</h2>
           <button
+            aria-label="Close add research"
             onClick={() => setIsOpen(false)}
             className="rounded-full p-2 text-muted transition hover:bg-slate-100 hover:text-ink dark:text-darkMuted dark:hover:bg-darkHover dark:hover:text-white"
           >
@@ -47,6 +54,7 @@ export function AddNewDrawer() {
         <div className="p-6 space-y-4">
           <Link
             href="/submit?type=published"
+            aria-label="Close add research"
             onClick={() => setIsOpen(false)}
             className="group flex items-start gap-4 rounded-xl border border-line p-4 transition hover:border-primary hover:bg-primary/5 dark:border-darkLine dark:hover:border-primary"
           >
@@ -63,6 +71,7 @@ export function AddNewDrawer() {
 
           <Link
             href="/submit?type=preprint"
+            aria-label="Close add research"
             onClick={() => setIsOpen(false)}
             className="group flex items-start gap-4 rounded-xl border border-line p-4 transition hover:border-primary hover:bg-primary/5 dark:border-darkLine dark:hover:border-primary"
           >

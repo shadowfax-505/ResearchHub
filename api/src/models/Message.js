@@ -91,13 +91,17 @@ class Message {
   static async updateRequest(requestId, userId, status) {
     const [result] = await pool.query(
       `UPDATE MESSAGE_REQUESTS SET status = ?, decided_by_user_id = ?, decided_at = SYSTIMESTAMP, updated_at = SYSTIMESTAMP
-       WHERE request_id = ? AND (recipient_id = ? OR sender_id = ?) AND status = 'pending'`,
-      [status, userId, requestId, userId, userId]
+       WHERE request_id = ? AND recipient_id = ? AND status = 'pending'`,
+      [status, userId, requestId, userId]
     );
     return result.affectedRows;
   }
 
   static async canMessage(userId1, userId2) {
+    const [blocked] = await pool.query(`SELECT 1 FROM USER_BLOCKS WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?)
+      UNION ALL SELECT 1 FROM MESSAGE_REQUESTS WHERE status = 'blocked' AND ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)) FETCH FIRST 1 ROW ONLY`,
+      [userId1, userId2, userId2, userId1, userId1, userId2, userId2, userId1]);
+    if (blocked.length) return false;
     const [rows] = await pool.query(
       `SELECT 1 FROM MESSAGE_REQUESTS WHERE status = 'accepted' AND ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?))
        UNION ALL SELECT 1 FROM MESSAGES WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) FETCH FIRST 1 ROW ONLY`,

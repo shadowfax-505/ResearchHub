@@ -1,121 +1,104 @@
-# ResearchHub Development Environment Setup Guide
+# ResearchHub local setup
 
-## Overview
-This guide sets up ResearchHub with Oracle Database and the Express API.
+Run shell commands from the repository root. This is the host-run path used for verification: Node API and Next.js web, connected to a dedicated Oracle schema. See [the verification record](VERIFICATION_2026-10-11.md) for measured results and limits.
 
 ## Prerequisites
-- Node.js 16+ and npm
-- Oracle Database 21c XE, Oracle Database Free 23ai, or the Docker service from this project
-- SQL*Plus or SQLcl for manual database setup
-- Git
 
-## Fastest Setup With Docker
-From `ResearchHub/project`:
+- Node.js 22.12 or later and npm.
+- A reachable Oracle Database Free 23 instance. Verification used Oracle Free 23 Slim; other editions were not independently exercised.
+- An Oracle administrator able to create a separate application user in the intended pluggable database.
+- Google Chrome for the configured Playwright browser journeys.
 
-```bash
-docker-compose up --build
-```
+## 1. Prepare a dedicated database user
 
-The API runs on `http://localhost:3000` and Oracle listens on `localhost:1521`.
+For local reproduction, use a fresh schema such as `RH_QA_LOCAL`. Integration and browser tests require the `RH_QA_` prefix and write records in that schema. Keep it separate from existing application data.
 
-## Local Oracle Setup
-Create the application user from a privileged Oracle account:
+Connect as an administrator to the intended PDB, for example `FREEPDB1`, and replace the password placeholder before running:
 
 ```sql
-CREATE USER researchhub_user IDENTIFIED BY researchhub_secure_password;
-GRANT CONNECT, RESOURCE, CTXAPP TO researchhub_user;
-GRANT CREATE VIEW, CREATE SEQUENCE, CREATE TRIGGER, CREATE PROCEDURE TO researchhub_user;
-ALTER USER researchhub_user QUOTA UNLIMITED ON USERS;
+CREATE USER RH_QA_LOCAL IDENTIFIED BY "replace-with-a-unique-database-password";
+GRANT CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE SEQUENCE,
+      CREATE TRIGGER, CREATE PROCEDURE TO RH_QA_LOCAL;
+ALTER USER RH_QA_LOCAL QUOTA UNLIMITED ON USERS;
 ```
 
-Apply the schema and seed data:
+If Oracle Text is installed, have the administrator grant `CTXAPP` to this user for the optional text indexes. The verified Slim configuration uses the application's substring search path.
 
-```bash
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/schema.sql
-sqlplus researchhub_user/researchhub_secure_password@localhost:1521/XEPDB1 @database/seeds/seed-data.sql
+## 2. Install and configure
+
+```sh
+npm run install:all
+cp api/.env.example api/.env
 ```
 
-Verify tables:
+Edit the private, gitignored `api/.env`:
 
-```sql
-SELECT table_name FROM user_tables ORDER BY table_name;
-SELECT COUNT(*) AS table_count FROM user_tables;
-```
-
-## API Setup
-Install dependencies and start the server:
-
-```bash
-cd api
-npm install
-npm run dev
-```
-
-Use these database environment values:
-
-```env
-DB_USER=researchhub_user
-DB_PASSWORD=researchhub_secure_password
-DB_CONNECT_STRING=localhost:1521/XEPDB1
-DB_SCHEMA=RESEARCHHUB_USER
+```dotenv
+DB_USER=RH_QA_LOCAL
+DB_PASSWORD=your-unique-database-password
+DB_CONNECT_STRING=127.0.0.1:1521/FREEPDB1
+DB_SCHEMA=RH_QA_LOCAL
+JWT_SECRET=your-unique-random-secret-of-at-least-32-characters
 NODE_ENV=development
 API_PORT=3000
+API_URL=http://localhost:3000
+APP_URL=http://localhost:3001
+CORS_ORIGINS=http://localhost:3001,http://127.0.0.1:3001
 ```
 
-Health checks:
+Use your actual listener port and service name. Set a stable, private JWT secret; the placeholder is not a secret. Leave `SMTP_HOST` unset for local QA. Email requests then queue without inbox delivery.
 
-```bash
-curl http://localhost:3000/health
-curl http://localhost:3000/api/v1
+The web defaults to `http://localhost:3000`. To change it, create private `web/.env.local` containing `NEXT_PUBLIC_API_BASE_URL=https://your-api-origin` before building. This is public browser configuration and must contain no credentials.
+
+## 3. Migrate and run
+
+```sh
+npm --prefix api run migrate
+# Optional for browsing; required for the seeded-paper browser tests below:
+npm --prefix api run seed
+npm --prefix web run build
 ```
 
-## Database Scripts
-Run schema and seed scripts through npm:
+The migration runner creates the base schema only when empty, records applied migrations and stops on incomplete schemas or stored-program compilation errors. Use this runner instead of replaying `database/schema.sql` on existing data.
 
-```bash
-cd api
-npm run migrate
-npm run seed
+Start the API in one terminal:
+
+```sh
+npm --prefix api start
 ```
 
-## Project Structure
+Start the production web build in another terminal:
 
-```text
-ResearchHub/
-├── .env.example
-├── docker-compose.yml
-├── database/
-│   ├── schema.sql
-│   ├── migrations/
-│   └── seeds/
-├── api/
-│   ├── server.js
-│   ├── scripts/
-│   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   └── middleware/
-│   └── tests/
-└── web/
+```sh
+npm --prefix web start
 ```
 
-## Troubleshooting
-- `ORA-01017`: verify `DB_USER` and `DB_PASSWORD`.
-- `ORA-12154` or `NJS-511`: verify `DB_CONNECT_STRING` and that the listener is reachable.
-- `ORA-00942`: run the schema script as `researchhub_user`.
-- `ORA-29855` or Oracle Text errors: grant `CTXAPP` to `researchhub_user` or ask the DBA to create the text indexes.
-- `MODULE_NOT_FOUND`: run `npm install` in `api`.
-- `PORT in use`: stop the process using port `3000` or change `API_PORT`.
+Open `http://localhost:3001`; API health is at `http://localhost:3000/health`. `npm run dev` and `npm run dev:web` are the separate API/web development commands. Stop foreground servers with Ctrl+C.
 
-## Verification Checklist
-- [ ] Oracle is running and reachable on port `1521`
-- [ ] `researchhub_user` exists and can connect
-- [ ] `database/schema.sql` has been applied
-- [ ] Seed data has been loaded if needed
-- [ ] `api/.env` uses Oracle connection values
-- [ ] API dependencies are installed
-- [ ] `npm run lint` passes
-- [ ] `npm test` passes
-- [ ] `/health` returns a successful response
+Seed papers and accounts are fictional development data. Create your own account through registration to browse the app. An optional additional demo-network seed and its account details are documented in [api/DEMO_ACCOUNTS.md](../api/DEMO_ACCOUNTS.md). Do not load development seeds into a public production database.
+
+## 4. Reproduce checks
+
+Keep Oracle and both servers running against the same isolated `RH_QA_*` schema, with SMTP unset. Seed the fresh schema before browser tests so expected search papers exist. Start the production web server first; Playwright reuses it, otherwise its configuration starts a development server.
+
+```sh
+npm --prefix api test -- --runInBand
+npm --prefix api run test:integration
+npm --prefix web run test:e2e
+npm --prefix api audit --omit=dev
+npm --prefix web audit --omit=dev
+```
+
+The recorded run passed 65 Oracle integration tests, 27 API unit tests and 8 desktop/mobile browser journeys. Production builds passed. Full lint still reports legacy warnings; it is not recorded as clean.
+
+## Docker status
+
+The repository's Compose configuration parsed successfully. New Docker images and the all-container startup path were not built or verified during this work. Use the host-run instructions above to reproduce the tested setup. The Compose project is separately named `researchhub-development`; existing user database volumes were preserved.
+
+## Connection troubleshooting
+
+- `ORA-01017`: match the configured user and password to the selected PDB.
+- `NJS-511` or listener errors: check the host, mapped port and service name in `DB_CONNECT_STRING`.
+- Missing tables or migration failure: confirm this is the intended schema and inspect the reported migration; do not reset an existing database.
+- Browser API/CORS errors: match the web's API origin, API `APP_URL`/`CORS_ORIGINS`, and actual browser origin; rebuild after changing web environment values.
+- Occupied ports: stop the conflicting server or configure a different API port and matching web API URL.

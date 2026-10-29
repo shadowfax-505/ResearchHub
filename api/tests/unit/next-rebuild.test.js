@@ -97,9 +97,9 @@ describe('Next.js rebuild shell', () => {
 
   it('contains Playwright, accessibility, Storybook, and API mocking setup', () => {
     expect(fs.existsSync(path.join(webRoot, 'playwright.config.ts'))).toBe(true);
-    expect(fs.existsSync(path.join(webRoot, 'tests', 'researchhub.spec.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(webRoot, 'tests', 'core-flows.spec.ts'))).toBe(true);
     expect(fs.existsSync(path.join(webRoot, '.storybook', 'main.ts'))).toBe(true);
     expect(fs.existsSync(path.join(webRoot, 'mocks', 'handlers.ts'))).toBe(true);
-    expect(read('web/tests/researchhub.spec.ts')).toContain('AxeBuilder');
+    expect(read('web/tests/core-flows.spec.ts')).toContain('AxeBuilder');
   });
 });

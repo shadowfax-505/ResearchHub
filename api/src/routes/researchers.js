@@ -1,3 +1,4 @@
+const asyncHandler = require('../utils/asyncHandler');
 const express = require('express');
 const ResearcherProfileController = require('../controllers/ResearcherProfileController');
 const AuthMiddleware = require('../middleware/auth');
@@ -16,7 +17,7 @@ router.get('/me', AuthMiddleware.verifyToken, ResearcherProfileController.getMin
 router.put('/me', AuthMiddleware.verifyToken, ResearcherProfileController.updateMine);
 router.get('/me/verification-status', AuthMiddleware.verifyToken, ResearcherProfileController.verificationStatus);
 router.post('/me/verification-request', AuthMiddleware.verifyToken, ResearcherProfileController.requestVerification);
-router.post('/me/avatar', AuthMiddleware.verifyToken, avatarUpload.single('file'), require('../controllers/UploadController').uploadAvatar);
+router.post('/me/avatar', AuthMiddleware.verifyToken, avatarUpload.single('file'), asyncHandler(require('../controllers/UploadController').uploadAvatar));
 router.get('/institutions/rankings', ResearcherProfileController.getInstitutionalRankings);
 router.get('/', ResearcherProfileController.listResearchers);
 router.get('/:slug/contributions', ResearcherProfileController.contributions);

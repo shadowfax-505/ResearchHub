@@ -22,7 +22,7 @@ class Author {
     const [papers] = await pool.query(`
       SELECT p.* FROM RESEARCH_PAPERS p
       JOIN PAPER_AUTHORS pa ON p.paper_id = pa.paper_id
-      WHERE pa.author_id = ?
+      WHERE pa.author_id = ? AND NVL(p.status, 'published') = 'published' AND NVL(p.visibility, 'public') = 'public'
       ORDER BY p.publication_date DESC
     `, [authorId]);
     author.papers = papers;
@@ -50,9 +50,9 @@ class Author {
     return rows;
   }
 
-  static async create(authorData) {
+  static async create(authorData, db = pool) {
     const { full_name, affiliation, country, h_index = 0, email, researcher_url, biography, orcid } = authorData;
-    const [result] = await pool.query(
+    const [result] = await db.query(
       'INSERT INTO AUTHORS (full_name, affiliation, country, h_index, email, researcher_url, biography, orcid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, SYSTIMESTAMP)',
       [full_name, affiliation, country, h_index, email, researcher_url, biography, orcid],
       { returnColumn: 'author_id' }

@@ -35,20 +35,6 @@ function splitStatements(sql) {
     });
 }
 
-async function dropAllUserTables(connection) {
-  // Query all tables in the current user's schema
-  const res = await connection.execute('SELECT table_name FROM user_tables');
-  for (const row of res.rows) {
-    const tableName = row[0] || row.TABLE_NAME;
-    try {
-      await connection.execute(`DROP TABLE "${tableName}" CASCADE CONSTRAINTS PURGE`);
-      console.log(`Dropped table: ${tableName}`);
-    } catch (e) {
-      console.warn(`Error dropping table ${tableName}:`, e.message);
-    }
-  }
-}
-
 async function executeFile(connection, filePath) {
   const sql = fs.readFileSync(filePath, 'utf8');
   for (const statement of splitStatements(sql)) {
@@ -92,11 +78,9 @@ async function runMigrations() {
       hasAuthors = false;
     }
 
-    // If schema is partial (e.g. USERS exists but other core tables like AUTHORS do not), clean up first
-    if (hasUsers && !hasAuthors) {
-      console.log('Detected partial schema state. Dropping all user schema tables for a clean rebuild...');
-      await dropAllUserTables(connection);
-      hasUsers = false;
+    const existing = await connection.execute("SELECT table_name FROM user_tables WHERE table_name <> 'RH_SCHEMA_MIGRATIONS'");
+    if (existing.rows.length && (!hasUsers || !hasAuthors)) {
+      throw new Error('The schema is incomplete. Migration stopped without deleting tables. Back up and repair it explicitly.');
     }
 
     if (!hasUsers && fs.existsSync(SCHEMA_FILE)) {
@@ -111,13 +95,23 @@ async function runMigrations() {
       return;
     }
 
+    await connection.execute(`BEGIN
+      EXECUTE IMMEDIATE 'CREATE TABLE RH_SCHEMA_MIGRATIONS (filename VARCHAR2(200) PRIMARY KEY, applied_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL)';
+      EXCEPTION WHEN OTHERS THEN IF SQLCODE != -955 THEN RAISE; END IF;
+    END;`);
     const files = fs.readdirSync(MIGRATIONS_DIR).filter(file => file.endsWith('.sql')).sort();
 
     for (const file of files) {
+      const applied = await connection.execute('SELECT filename FROM RH_SCHEMA_MIGRATIONS WHERE filename = :filename', { filename: file });
+      if (applied.rows.length) { console.log(`Already applied: ${file}`); continue; }
       console.log(`Running migration: ${file}`);
       await executeFile(connection, path.join(MIGRATIONS_DIR, file));
+      await connection.execute('INSERT INTO RH_SCHEMA_MIGRATIONS (filename) VALUES (:filename)', { filename: file });
+      await connection.commit();
     }
 
+    const invalid = await connection.execute("SELECT name, type, line, text FROM user_errors WHERE attribute = 'ERROR' ORDER BY name, sequence");
+    if (invalid.rows.length) throw new Error('Stored program compilation failed: ' + JSON.stringify(invalid.rows));
     await connection.commit();
   } finally {
     await connection.close();
